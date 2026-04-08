@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cub Scouts Pack Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f4f8; }
+    .progress-bar-inner { transition: width 0.6s ease; }
+    .scout-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.12); }
+    .scout-card { transition: transform 0.2s, box-shadow 0.2s; }
+    .rank-badge { font-weight: 700; letter-spacing: 0.04em; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease; }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #f1f5f9; } ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+    .modal-backdrop { backdrop-filter: blur(3px); }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ─── Constants ──────────────────────────────────────────────
+const RANKS = ['Lion', 'Tiger', 'Wolf', 'Bear', 'Webelos', 'AOL'];
+const RANK_INFO = {
+  Lion:    { emoji:'🦁', color:'#7B2D8B', bg:'#F3E8FF', border:'#D8B4FE', grade:'Kindergarten',  label:'Lion' },
+  Tiger:   { emoji:'🐯', color:'#C2410C', bg:'#FFF7ED', border:'#FDBA74', grade:'1st Grade',      label:'Tiger' },
+  Wolf:    { emoji:'🐺', color:'#374151', bg:'#F9FAFB', border:'#9CA3AF', grade:'2nd Grade',      label:'Wolf' },
+  Bear:    { emoji:'🐻', color:'#92400E', bg:'#FEF3C7', border:'#FCD34D', grade:'3rd Grade',      label:'Bear' },
+  Webelos: { emoji:'⚜️',  color:'#065F46', bg:'#ECFDF5', border:'#6EE7B7', grade:'4th Grade',      label:'Webelos' },
+  AOL:     { emoji:'🏹', color:'#1E3A8A', bg:'#EFF6FF', border:'#93C5FD', grade:'5th Grade',      label:'Arrow of Light' },
+};
+const STATUS_INFO = {
+  not_started: { label:'Not Started', color:'#9CA3AF', bg:'#F3F4F6', icon:'○' },
+  in_progress:  { label:'In Progress', color:'#D97706', bg:'#FFFBEB', icon:'◑' },
+  completed:    { label:'Completed',   color:'#059669', bg:'#ECFDF5', icon:'✓' },
+};
+const AWARD_TYPE_LABELS = {
+  rank_badge:'Rank Badge', required_adventure:'Required Adventure',
+  elective_adventure:'Elective Adventure', pin:'Pin', belt_loop:'Belt Loop',
+  nova:'Nova Award', supernova:'Supernova Award',
+};
+const GRADES = ['Kindergarten','1st Grade','2nd Grade','3rd Grade','4th Grade','5th Grade'];
+
+// ─── API Helper ─────────────────────────────────────────────
+const api = {
+  get: (url) => fetch(url).then(r => r.json()),
+  post: (url, body) => fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
+  put:  (url, body) => fetch(url, { method:'PUT',  headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
+  del:  (url, body) => fetch(url, { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
+};
+
+// ─── Shared Components ──────────────────────────────────────
+function Modal({ title, onClose, children, wide }) {
+  useEffect(() => {
+    const handler = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style={{background:'rgba(0,0,0,0.5)'}}>
+      <div className={`bg-white rounded-2xl shadow-2xl ${wide ? 'w-full max-w-3xl' : 'w-full max-w-lg'} max-h-[90vh] overflow-y-auto fade-in`}>
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function RankBadge({ rank, size = 'sm' }) {
+  const info = RANK_INFO[rank] || {};
+  const sz = size === 'lg' ? 'px-4 py-1.5 text-base' : 'px-2.5 py-0.5 text-xs';
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full font-semibold rank-badge ${sz}`}
+      style={{background: info.bg, color: info.color, border: `1.5px solid ${info.border}`}}>
+      <span>{info.emoji}</span> {rank === 'AOL' ? 'Arrow of Light' : rank}
+    </span>
+  );
+}
+
+function StatusBadge({ status }) {
+  const info = STATUS_INFO[status] || STATUS_INFO.not_started;
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold"
+      style={{background: info.bg, color: info.color}}>
+      {info.icon} {info.label}
+    </span>
+  );
+}
+
+function ProgressBar({ progress, status, size = 'md' }) {
+  const h = size === 'sm' ? 'h-2' : 'h-3';
+  const color = status === 'completed' ? '#059669' : status === 'in_progress' ? '#D97706' : '#9CA3AF';
+  return (
+    <div className={`w-full bg-gray-200 rounded-full overflow-hidden ${h}`}>
+      <div className={`${h} rounded-full progress-bar-inner`}
+        style={{width:`${Math.min(100,progress||0)}%`, background:color}} />
+    </div>
+  );
+}
+
+function Spinner() {
+  return <div className="flex justify-center items-center py-16">
+    <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+  </div>;
+}
+
+function Input({ label, ...props }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
+      <input className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" {...props} />
+    </div>
+  );
+}
+
+function Select({ label, children, ...props }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
+      <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" {...props}>
+        {children}
+      </select>
+    </div>
+  );
+}
+
+function Textarea({ label, ...props }) {
+  return (
+    <div className="flex flex-col gap-1">
+      {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
+      <textarea className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" rows={3} {...props} />
+    </div>
+  );
+}
+
+function Btn({ children, variant='primary', size='md', ...props }) {
+  const base = 'inline-flex items-center justify-center gap-2 font-semibold rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed';
+  const variants = {
+    primary:   'bg-blue-900 text-white hover:bg-blue-800 focus:ring-blue-700',
+    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200 focus:ring-gray-400',
+    success:   'bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500',
+    danger:    'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
+    warning:   'bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-400',
+    outline:   'border-2 border-blue-900 text-blue-900 hover:bg-blue-50 focus:ring-blue-700',
+    gold:      'bg-yellow-500 text-blue-900 hover:bg-yellow-400 focus:ring-yellow-400 font-bold',
+  };
+  const sizes = { sm:'px-3 py-1.5 text-xs', md:'px-4 py-2 text-sm', lg:'px-6 py-3 text-base' };
+  return <button className={`${base} ${variants[variant]} ${sizes[size]}`} {...props}>{children}</button>;
+}
+
+// ─── Navbar ─────────────────────────────────────────────────
+function Navbar({ page, setPage, isAdmin, onAdminClick }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const navLinks = [
+    { key:'home', label:'🏠 Home' },
+    { key:'calendar', label:'📅 Calendar' },
+  ];
+  return (
+    <nav className="sticky top-0 z-40 shadow-lg" style={{background:'#003F87'}}>
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          <button onClick={() => setPage('home')} className="flex items-center gap-3 text-white hover:text-yellow-300 transition-colors">
+            <span className="text-2xl">⚜️</span>
+            <div className="text-left">
+              <div className="font-bold text-base leading-tight" style={{color:'#FCC200'}}>CUB SCOUTS</div>
+              <div className="text-xs text-blue-200 leading-tight">Pack Manager</div>
+            </div>
+          </button>
+          <div className="hidden md:flex items-center gap-2">
+            {navLinks.map(l => (
+              <button key={l.key} onClick={() => setPage(l.key)}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${page === l.key ? 'bg-yellow-400 text-blue-900' : 'text-blue-100 hover:bg-blue-800 hover:text-white'}`}>
+                {l.label}
+              </button>
+            ))}
+            <button onClick={onAdminClick}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ml-2 ${isAdmin ? 'bg-yellow-400 text-blue-900' : 'bg-blue-800 text-blue-100 hover:bg-blue-700 hover:text-white'}`}>
+              {isAdmin ? '🔓 Admin Panel' : '🔐 Leader Login'}
+            </button>
+          </div>
+          <button className="md:hidden text-white p-2" onClick={() => setMenuOpen(!menuOpen)}>
+            <div className="w-5 h-0.5 bg-white mb-1"></div><div className="w-5 h-0.5 bg-white mb-1"></div><div className="w-5 h-0.5 bg-white"></div>
+          </button>
+        </div>
+      </div>
+      {menuOpen && (
+        <div className="md:hidden border-t border-blue-800 pb-3">
+          {navLinks.map(l => (
+            <button key={l.key} onClick={() => { setPage(l.key); setMenuOpen(false); }}
+              className={`block w-full text-left px-4 py-3 text-sm font-semibold ${page===l.key ? 'bg-yellow-400 text-blue-900' : 'text-blue-100 hover:bg-blue-800'}`}>
+              {l.label}
+            </button>
+          ))}
+          <button onClick={() => { onAdminClick(); setMenuOpen(false); }}
+            className="block w-full text-left px-4 py-3 text-sm font-semibold text-blue-100 hover:bg-blue-800">
+            {isAdmin ? '🔓 Admin Panel' : '🔐 Leader Login'}
+          </button>
+        </div>
+      )}
+    </nav>
+  );
+}
+
+// ─── Home Page ───────────────────────────────────────────────
+function HomePage({ setPage, setSelectedScoutId }) {
+  const [scouts, setScouts] = useState([]);
+  const [search, setSearch] = useState('');
+  const [filterRank, setFilterRank] = useState('All');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/api/scouts').then(data => { setScouts(Array.isArray(data) ? data : []); setLoading(false); });
+  }, []);
+
+  const filtered = scouts.filter(s => {
+    const q = search.toLowerCase();
+    const matchSearch = !q || `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) || (s.den||'').toLowerCase().includes(q);
+    const matchRank = filterRank === 'All' || s.rank === filterRank;
+    return matchSearch && matchRank;
+  });
+
+  const byRank = RANKS.reduce((acc, r) => { acc[r] = filtered.filter(s => s.rank === r); return acc; }, {});
+  const totalByRank = RANKS.reduce((acc, r) => { acc[r] = scouts.filter(s => s.rank === r).length; return acc; }, {});
+
+  const goScout = (id) => { setSelectedScoutId(id); setPage('scout'); };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8 fade-in">
+      {/* Pack Stats */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-1">Pack Roster</h1>
+        <p className="text-gray-500 mb-6">{scouts.length} scouts across {RANKS.filter(r => totalByRank[r] > 0).length} ranks</p>
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+          {RANKS.map(r => {
+            const info = RANK_INFO[r];
+            return (
+              <button key={r} onClick={() => setFilterRank(filterRank === r ? 'All' : r)}
+                className={`rounded-xl p-3 text-center border-2 transition-all ${filterRank === r ? 'ring-2 ring-offset-1' : 'hover:scale-105'}`}
+                style={{background: info.bg, borderColor: filterRank===r ? info.color : info.border, ringColor: info.color}}>
+                <div className="text-2xl mb-1">{info.emoji}</div>
+                <div className="font-bold text-xs" style={{color:info.color}}>{r === 'AOL' ? 'AOL' : r}</div>
+                <div className="text-lg font-black" style={{color:info.color}}>{totalByRank[r]}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-8">
+        <div className="relative flex-1">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search scouts by name or den..."
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+        </div>
+        {filterRank !== 'All' && (
+          <button onClick={() => setFilterRank('All')} className="px-4 py-2.5 bg-blue-100 text-blue-700 rounded-xl text-sm font-semibold hover:bg-blue-200">
+            Clear filter ✕
+          </button>
+        )}
+      </div>
+
+      {loading ? <Spinner /> : (
+        <div className="space-y-10">
+          {RANKS.map(rank => {
+            const group = byRank[rank];
+            if (group.length === 0 && filterRank !== 'All' && filterRank !== rank) return null;
+            if (group.length === 0 && !search) return null;
+            const info = RANK_INFO[rank];
+            return (
+              <div key={rank}>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-3xl">{info.emoji}</span>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-800">{rank === 'AOL' ? 'Arrow of Light' : rank} Scouts</h2>
+                    <p className="text-sm text-gray-500">{info.grade} · {group.length} scout{group.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <div className="flex-1 border-b-2 border-gray-100 ml-2"></div>
+                </div>
+                {group.length === 0 ? (
+                  <p className="text-gray-400 italic text-sm pl-2">No scouts found</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {group.map(s => <ScoutCard key={s.id} scout={s} onClick={() => goScout(s.id)} />)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {filtered.length === 0 && <p className="text-center text-gray-400 py-12 text-lg">No scouts match your search.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScoutCard({ scout, onClick }) {
+  const [awards, setAwards] = useState(null);
+  const info = RANK_INFO[scout.rank] || {};
+
+  useEffect(() => {
+    api.get(`/api/awards?scoutId=${scout.id}`).then(data => setAwards(Array.isArray(data) ? data : []));
+  }, [scout.id]);
+
+  const completed = awards ? awards.filter(a => a.status === 'completed').length : 0;
+  const total = awards ? awards.length : 0;
+  const inProgress = awards ? awards.filter(a => a.status === 'in_progress') : [];
+  const overallPct = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  return (
+    <div onClick={onClick} className="scout-card bg-white rounded-2xl border cursor-pointer overflow-hidden"
+      style={{borderColor: info.border}}>
+      <div className="h-2" style={{background: info.color}}></div>
+      <div className="p-4">
+        <div className="flex items-start justify-between mb-2">
+          <div>
+            <h3 className="font-bold text-gray-800 text-base leading-tight">{scout.firstName} {scout.lastName}</h3>
+            <p className="text-xs text-gray-500 mt-0.5">{scout.den || 'No den assigned'}</p>
+          </div>
+          <span className="text-2xl">{info.emoji}</span>
+        </div>
+        <RankBadge rank={scout.rank} />
+        {awards !== null && (
+          <div className="mt-3">
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>{completed}/{total} awards</span>
+              <span>{overallPct}%</span>
+            </div>
+            <ProgressBar progress={overallPct} status={overallPct === 100 ? 'completed' : overallPct > 0 ? 'in_progress' : 'not_started'} size="sm" />
+            {inProgress.length > 0 && (
+              <p className="text-xs text-amber-600 mt-1.5 truncate">⟳ {inProgress[0].name}{inProgress.length > 1 ? ` +${inProgress.length-1} more` : ''}</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Scout Detail Page ───────────────────────────────────────
+function ScoutPage({ scoutId, setPage, isAdmin }) {
+  const [scout, setScout] = useState(null);
+  const [awards, setAwards] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('awards');
+
+  const load = useCallback(() => {
+    Promise.all([
+      api.get(`/api/scouts/${scoutId}`),
+      api.get(`/api/awards?scoutId=${scoutId}`),
+      api.get(`/api/signups?scoutId=${scoutId}`),
+    ]).then(([s, a, e]) => {
+      setScout(s.error ? null : s);
+      setAwards(Array.isArray(a) ? a : []);
+      setEvents(Array.isArray(e) ? e : []);
+      setLoading(false);
+    });
+  }, [scoutId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <Spinner />;
+  if (!scout) return <div className="text-center py-16 text-gray-400">Scout not found.</div>;
+
+  const info = RANK_INFO[scout.rank] || {};
+  const completed = awards.filter(a => a.status === 'completed');
+  const inProgress = awards.filter(a => a.status === 'in_progress');
+  const notStarted = awards.filter(a => a.status === 'not_started');
+  const overallPct = awards.length > 0 ? Math.round((completed.length / awards.length) * 100) : 0;
+
+  // Group awards by type
+  const byType = {};
+  awards.forEach(a => { if (!byType[a.type]) byType[a.type] = []; byType[a.type].push(a); });
+
+  const today = new Date().toISOString().split('T')[0];
+  const upcoming = events.filter(e => e.date >= today);
+  const past = events.filter(e => e.date < today);
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-8 fade-in">
+      <button onClick={() => setPage('home')} className="mb-6 text-blue-700 hover:text-blue-900 flex items-center gap-1 text-sm font-semibold">
+        ← Back to Roster
+      </button>
+
+      {/* Scout Header */}
+      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden mb-6" style={{borderColor:info.border}}>
+        <div className="h-3" style={{background:info.color}}></div>
+        <div className="p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-5xl flex-shrink-0"
+              style={{background:info.bg}}>
+              {info.emoji}
+            </div>
+            <div className="flex-1">
+              <h1 className="text-3xl font-black text-gray-800">{scout.firstName} {scout.lastName}</h1>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <RankBadge rank={scout.rank} size="lg" />
+                {scout.den && <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">{scout.den}</span>}
+                {scout.grade && <span className="text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full">{scout.grade}</span>}
+              </div>
+              {(scout.parentName || scout.parentEmail || scout.parentPhone) && (
+                <div className="mt-3 text-sm text-gray-600 flex flex-wrap gap-3">
+                  {scout.parentName && <span>👤 {scout.parentName}</span>}
+                  {scout.parentEmail && <a href={`mailto:${scout.parentEmail}`} className="text-blue-600 hover:underline">✉️ {scout.parentEmail}</a>}
+                  {scout.parentPhone && <a href={`tel:${scout.parentPhone}`} className="text-blue-600">📞 {scout.parentPhone}</a>}
+                </div>
+              )}
+              {scout.dateJoined && <p className="text-xs text-gray-400 mt-1">Joined: {scout.dateJoined}</p>}
+            </div>
+            {/* Overall Progress */}
+            <div className="sm:text-right">
+              <div className="text-4xl font-black" style={{color:info.color}}>{overallPct}%</div>
+              <div className="text-xs text-gray-500 mb-2">Overall Progress</div>
+              <div className="flex gap-2 text-xs font-semibold flex-wrap sm:justify-end">
+                <span className="px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">✓ {completed.length}</span>
+                <span className="px-2 py-1 rounded-full bg-amber-100 text-amber-700">◑ {inProgress.length}</span>
+                <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600">○ {notStarted.length}</span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4">
+            <ProgressBar progress={overallPct} status={overallPct === 100 ? 'completed' : overallPct > 0 ? 'in_progress' : 'not_started'} />
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
+        {[['awards','🏅 Awards'],['events','📅 Events']].map(([k,l]) => (
+          <button key={k} onClick={() => setActiveTab(k)}
+            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab===k ? 'bg-white shadow text-blue-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Awards Tab */}
+      {activeTab === 'awards' && (
+        <div className="space-y-6 fade-in">
+          {Object.entries(byType).map(([type, typeAwards]) => (
+            <div key={type} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between"
+                style={{background: type === 'rank_badge' ? info.bg : '#F8FAFC'}}>
+                <h3 className="font-bold text-gray-700">{AWARD_TYPE_LABELS[type] || type}</h3>
+                <span className="text-xs text-gray-400">{typeAwards.filter(a=>a.status==='completed').length}/{typeAwards.length} completed</span>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {typeAwards.map(award => (
+                  <div key={award.id} className="px-5 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-gray-800 text-sm truncate">{award.name}</span>
+                          <StatusBadge status={award.status} />
+                          {award.dateEarned && <span className="text-xs text-gray-400">📅 {award.dateEarned}</span>}
+                        </div>
+                        {award.status !== 'not_started' && (
+                          <div className="mt-2 flex items-center gap-3">
+                            <div className="flex-1"><ProgressBar progress={award.progress} status={award.status} size="sm" /></div>
+                            <span className="text-xs text-gray-500 w-8 text-right">{award.progress}%</span>
+                          </div>
+                        )}
+                        {award.notes && <p className="text-xs text-gray-400 mt-1 italic">{award.notes}</p>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+          {awards.length === 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
+              No awards tracked yet.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Events Tab */}
+      {activeTab === 'events' && (
+        <div className="space-y-6 fade-in">
+          {upcoming.length > 0 && (
+            <div>
+              <h3 className="font-bold text-gray-700 mb-3">Upcoming Events ({upcoming.length})</h3>
+              <div className="space-y-3">
+                {upcoming.map(e => (
+                  <div key={e.id} className="bg-white rounded-xl border border-blue-100 p-4 flex items-center gap-4">
+                    <div className="text-center w-12 flex-shrink-0">
+                      <div className="text-xs font-bold text-blue-800 uppercase">{e.date && new Date(e.date+'T00:00:00').toLocaleDateString('en',{month:'short'})}</div>
+                      <div className="text-2xl font-black text-blue-900">{e.date && new Date(e.date+'T00:00:00').getDate()}</div>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-800">{e.title}</div>
+                      <div className="text-xs text-gray-500 flex flex-wrap gap-2 mt-0.5">
+                        {e.time && <span>🕐 {e.time}</span>}
+                        {e.location && <span>📍 {e.location}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {past.length > 0 && (
+            <div>
+              <h3 className="font-bold text-gray-400 mb-3">Past Events ({past.length})</h3>
+              <div className="space-y-3">
+                {past.map(e => (
+                  <div key={e.id} className="bg-gray-50 rounded-xl border border-gray-100 p-4 flex items-center gap-4 opacity-70">
+                    <div className="text-center w-12 flex-shrink-0">
+                      <div className="text-xs font-bold text-gray-500 uppercase">{e.date && new Date(e.date+'T00:00:00').toLocaleDateString('en',{month:'short'})}</div>
+                      <div className="text-2xl font-black text-gray-600">{e.date && new Date(e.date+'T00:00:00').getDate()}</div>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-600">{e.title}</div>
+                      {e.location && <div className="text-xs text-gray-400">📍 {e.location}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {events.length === 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
+              Not signed up for any events yet.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Calendar Page ───────────────────────────────────────────
+function CalendarPage({ isAdmin }) {
+  const [events, setEvents] = useState([]);
+  const [scouts, setScouts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [signupModal, setSignupModal] = useState(null);
+  const [month, setMonth] = useState(() => { const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() }; });
+  const [view, setView] = useState('list');
+
+  const load = useCallback(() => {
+    Promise.all([api.get('/api/events'), api.get('/api/scouts')]).then(([e, s]) => {
+      setEvents(Array.isArray(e) ? e : []);
+      setScouts(Array.isArray(s) ? s : []);
+      setLoading(false);
+    });
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const today = new Date().toISOString().split('T')[0];
+  const upcoming = [...events].filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date));
+  const past = [...events].filter(e => e.date < today).sort((a,b) => b.date.localeCompare(a.date));
+
+  const handleSignup = async (scoutId, eventId) => {
+    const res = await api.post('/api/signups', { scoutId, eventId });
+    if (res.error) { alert(res.error); return; }
+    // Refresh event
+    const updated = await api.get(`/api/events/${eventId}`);
+    setEvents(prev => prev.map(e => e.id === eventId ? {...e, signupCount: updated.signups ? updated.signups.length : e.signupCount} : e));
+    if (selectedEvent && selectedEvent.id === eventId) setSelectedEvent(updated);
+    setSignupModal(null);
+    alert('Signed up successfully!');
+  };
+
+  const handleRemoveSignup = async (scoutId, eventId) => {
+    await api.del('/api/signups', { scoutId, eventId });
+    const updated = await api.get(`/api/events/${eventId}`);
+    setEvents(prev => prev.map(e => e.id === eventId ? {...e, signupCount: updated.signups ? updated.signups.length : e.signupCount} : e));
+    if (selectedEvent && selectedEvent.id === eventId) setSelectedEvent(updated);
+  };
+
+  const openEvent = async (ev) => {
+    const detail = await api.get(`/api/events/${ev.id}`);
+    setSelectedEvent(detail.error ? ev : detail);
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-8 fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Pack Calendar</h1>
+          <p className="text-gray-500">{upcoming.length} upcoming events</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setView('list')} className={`px-3 py-2 rounded-lg text-sm font-semibold ${view==='list'?'bg-blue-900 text-white':'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>≡ List</button>
+          <button onClick={() => setView('calendar')} className={`px-3 py-2 rounded-lg text-sm font-semibold ${view==='calendar'?'bg-blue-900 text-white':'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>📅 Calendar</button>
+        </div>
+      </div>
+
+      {view === 'list' ? (
+        <div className="grid lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-3 space-y-8">
+            {upcoming.length > 0 && (
+              <div>
+                <h2 className="font-bold text-gray-700 text-lg mb-4">Upcoming</h2>
+                <div className="space-y-3">
+                  {upcoming.map(ev => <EventListCard key={ev.id} event={ev} onOpen={() => openEvent(ev)} />)}
+                </div>
+              </div>
+            )}
+            {past.length > 0 && (
+              <div>
+                <h2 className="font-bold text-gray-400 text-lg mb-4">Past Events</h2>
+                <div className="space-y-3 opacity-60">
+                  {past.map(ev => <EventListCard key={ev.id} event={ev} onOpen={() => openEvent(ev)} past />)}
+                </div>
+              </div>
+            )}
+            {events.length === 0 && <div className="text-center py-16 text-gray-400">No events scheduled yet.</div>}
+          </div>
+          <div className="lg:col-span-2">
+            {selectedEvent ? (
+              <EventDetail event={selectedEvent} scouts={scouts} onSignup={() => setSignupModal(selectedEvent)} onRemove={handleRemoveSignup} isAdmin={isAdmin} onClose={() => setSelectedEvent(null)} />
+            ) : (
+              <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-gray-400 sticky top-24">
+                <div className="text-4xl mb-3">📋</div>
+                <p>Select an event to see details and sign up</p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <CalendarGrid events={events} month={month} setMonth={setMonth} onEventClick={openEvent} selectedEvent={selectedEvent} />
+      )}
+
+      {signupModal && (
+        <Modal title={`Sign Up for ${signupModal.title}`} onClose={() => setSignupModal(null)}>
+          <p className="text-gray-600 mb-4">Select a scout to sign up:</p>
+          <div className="max-h-64 overflow-y-auto space-y-2">
+            {scouts.map(s => {
+              const alreadySigned = selectedEvent && selectedEvent.signups && selectedEvent.signups.some(su => su.scoutId === s.id);
+              return (
+                <button key={s.id} onClick={() => !alreadySigned && handleSignup(s.id, signupModal.id)}
+                  disabled={alreadySigned}
+                  className={`w-full flex items-center justify-between p-3 rounded-xl border text-left text-sm transition-all ${alreadySigned ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 hover:bg-blue-50 hover:border-blue-300'}`}>
+                  <span className="font-semibold">{s.firstName} {s.lastName}</span>
+                  <span className="flex items-center gap-2">
+                    <RankBadge rank={s.rank} />
+                    {alreadySigned && <span className="text-green-600 font-bold">✓ Signed Up</span>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function EventListCard({ event, onOpen, past }) {
+  const d = event.date ? new Date(event.date + 'T00:00:00') : null;
+  return (
+    <button onClick={onOpen} className={`w-full text-left bg-white rounded-xl border ${past?'border-gray-100':'border-blue-100'} p-4 hover:shadow-md transition-all flex items-center gap-4`}>
+      <div className="text-center w-14 flex-shrink-0">
+        {d && <>
+          <div className="text-xs font-bold uppercase" style={{color: past?'#9CA3AF':'#1E3A8A'}}>{d.toLocaleDateString('en',{month:'short'})}</div>
+          <div className="text-3xl font-black" style={{color: past?'#6B7280':'#1E3A8A'}}>{d.getDate()}</div>
+        </>}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="font-bold text-gray-800 truncate">{event.title}</div>
+        <div className="text-xs text-gray-500 flex flex-wrap gap-3 mt-0.5">
+          {event.time && <span>🕐 {event.time}</span>}
+          {event.location && <span className="truncate">📍 {event.location}</span>}
+        </div>
+      </div>
+      <div className="flex-shrink-0 text-right">
+        <span className="text-xs font-bold px-2 py-1 rounded-full" style={{background:'#EFF6FF', color:'#1E3A8A'}}>
+          👥 {event.signupCount || 0}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function EventDetail({ event, scouts, onSignup, onRemove, isAdmin, onClose }) {
+  return (
+    <div className="bg-white rounded-2xl border border-blue-100 overflow-hidden sticky top-24 fade-in">
+      <div className="bg-blue-900 p-5 text-white">
+        <div className="flex justify-between items-start">
+          <h3 className="font-bold text-lg leading-tight">{event.title}</h3>
+          <button onClick={onClose} className="text-blue-300 hover:text-white ml-2 text-xl">✕</button>
+        </div>
+        <div className="flex flex-col gap-1 mt-2 text-blue-200 text-sm">
+          <span>📅 {event.date}{event.time ? ' at ' + event.time : ''}</span>
+          {event.location && <span>📍 {event.location}</span>}
+        </div>
+      </div>
+      <div className="p-5">
+        {event.description && <p className="text-sm text-gray-600 mb-4">{event.description}</p>}
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-bold text-gray-700">Signups ({event.signups ? event.signups.length : 0}{event.maxSignups ? ' / ' + event.maxSignups : ''})</span>
+          <Btn size="sm" onClick={onSignup} variant="gold">+ Sign Up</Btn>
+        </div>
+        <div className="space-y-1.5 max-h-64 overflow-y-auto">
+          {event.signups && event.signups.map(su => (
+            <div key={su.scoutId} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-1.5 text-sm">
+              <span className="font-semibold text-gray-800">{su.firstName} {su.lastName}</span>
+              <div className="flex items-center gap-2">
+                <RankBadge rank={su.rank} />
+                <button onClick={() => onRemove(su.scoutId, event.id)} className="text-red-400 hover:text-red-600 text-xs px-1">✕</button>
+              </div>
+            </div>
+          ))}
+          {(!event.signups || event.signups.length === 0) && (
+            <p className="text-gray-400 text-sm text-center py-4">No signups yet</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CalendarGrid({ events, month, setMonth, onEventClick, selectedEvent }) {
+  const { year, month: m } = month;
+  const firstDay = new Date(year, m, 1).getDay();
+  const daysInMonth = new Date(year, m + 1, 0).getDate();
+  const today = new Date();
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  const eventsByDate = {};
+  events.forEach(e => { if (!eventsByDate[e.date]) eventsByDate[e.date] = []; eventsByDate[e.date].push(e); });
+
+  const cells = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = (d) => `${year}-${pad(m+1)}-${pad(d)}`;
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <button onClick={() => setMonth(prev => { const d = new Date(prev.year, prev.month-1); return {year:d.getFullYear(),month:d.getMonth()}; })}
+          className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-bold">‹</button>
+        <h2 className="font-bold text-gray-800 text-lg">{monthNames[m]} {year}</h2>
+        <button onClick={() => setMonth(prev => { const d = new Date(prev.year, prev.month+1); return {year:d.getFullYear(),month:d.getMonth()}; })}
+          className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-bold">›</button>
+      </div>
+      <div className="grid grid-cols-7 text-xs font-bold text-gray-400 text-center px-2 py-2">
+        {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d}>{d}</div>)}
+      </div>
+      <div className="grid grid-cols-7 gap-px bg-gray-100 mx-2 mb-2 rounded-xl overflow-hidden">
+        {cells.map((d, i) => {
+          if (d === null) return <div key={i} className="bg-gray-50 aspect-square"></div>;
+          const ds = dateStr(d);
+          const dayEvents = eventsByDate[ds] || [];
+          const isToday = today.getFullYear()===year && today.getMonth()===m && today.getDate()===d;
+          return (
+            <div key={i} className={`bg-white p-1 min-h-[70px] ${isToday ? 'ring-2 ring-blue-500 ring-inset' : ''}`}>
+              <div className={`text-xs font-bold text-right mb-1 w-6 h-6 ml-auto flex items-center justify-center rounded-full ${isToday ? 'bg-blue-900 text-white' : 'text-gray-600'}`}>{d}</div>
+              {dayEvents.slice(0,2).map(ev => (
+                <button key={ev.id} onClick={() => onEventClick(ev)}
+                  className="block w-full text-left text-xs px-1 py-0.5 rounded bg-blue-100 text-blue-800 hover:bg-blue-200 truncate mb-0.5 font-medium">
+                  {ev.title}
+                </button>
+              ))}
+              {dayEvents.length > 2 && <div className="text-xs text-gray-400 pl-1">+{dayEvents.length-2} more</div>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Admin Page ──────────────────────────────────────────────
+function AdminLoginPage({ onLogin }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError('');
+    const res = await api.post('/api/auth/login', { password });
+    setLoading(false);
+    if (res.success) { onLogin(); }
+    else { setError(res.error || 'Incorrect password'); }
+  };
+
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center px-4">
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-sm p-8 fade-in">
+        <div className="text-center mb-6">
+          <div className="text-5xl mb-3">🔐</div>
+          <h2 className="text-2xl font-bold text-gray-800">Leader Access</h2>
+          <p className="text-gray-500 text-sm mt-1">Enter your pack leader password</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter admin password" autoFocus />
+          {error && <div className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</div>}
+          <Btn type="submit" disabled={loading} className="w-full" variant="primary" size="lg">
+            {loading ? '...' : 'Sign In as Leader'}
+          </Btn>
+        </form>
+        <p className="text-xs text-gray-400 text-center mt-4">Default password: <code className="bg-gray-100 px-1 rounded">cubmaster123</code></p>
+      </div>
+    </div>
+  );
+}
+
+function AdminPage({ isAdmin, setIsAdmin }) {
+  const [tab, setTab] = useState('scouts');
+  const [scouts, setScouts] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(() => {
+    Promise.all([api.get('/api/scouts'), api.get('/api/events')]).then(([s, e]) => {
+      setScouts(Array.isArray(s) ? s : []);
+      setEvents(Array.isArray(e) ? e : []);
+      setLoading(false);
+    });
+  }, []);
+
+  useEffect(() => { if (isAdmin) load(); }, [isAdmin, load]);
+
+  const logout = async () => {
+    await api.post('/api/auth/logout', {});
+    setIsAdmin(false);
+  };
+
+  if (!isAdmin) return <AdminLoginPage onLogin={() => { setIsAdmin(true); }} />;
+
+  const tabs = [
+    { key:'scouts', label:'👦 Scouts' },
+    { key:'awards', label:'🏅 Awards' },
+    { key:'events', label:'📅 Events' },
+    { key:'export', label:'📥 Export' },
+    { key:'settings', label:'⚙️ Settings' },
+  ];
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8 fade-in">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
+          <p className="text-gray-500">Manage your pack</p>
+        </div>
+        <Btn variant="secondary" onClick={logout}>🔒 Sign Out</Btn>
+      </div>
+
+      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl flex-wrap">
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${tab===t.key ? 'bg-white shadow text-blue-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? <Spinner /> : (
+        <>
+          {tab === 'scouts'   && <AdminScoutsTab scouts={scouts} setScouts={setScouts} />}
+          {tab === 'awards'   && <AdminAwardsTab scouts={scouts} />}
+          {tab === 'events'   && <AdminEventsTab events={events} setEvents={setEvents} />}
+          {tab === 'export'   && <AdminExportTab scouts={scouts} events={events} />}
+          {tab === 'settings' && <AdminSettingsTab />}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Admin: Scouts Tab ───────────────────────────────────────
+function AdminScoutsTab({ scouts, setScouts }) {
+  const [modal, setModal] = useState(null); // null | 'add' | {scout}
+  const [search, setSearch] = useState('');
+  const [confirmDel, setConfirmDel] = useState(null);
+
+  const filtered = scouts.filter(s => {
+    const q = search.toLowerCase();
+    return !q || `${s.firstName} ${s.lastName}`.toLowerCase().includes(q) || (s.den||'').toLowerCase().includes(q);
+  });
+  const byRank = RANKS.reduce((acc, r) => { acc[r] = filtered.filter(s => s.rank === r); return acc; }, {});
+
+  const handleSave = async (data) => {
+    if (modal === 'add') {
+      const newScout = await api.post('/api/scouts', data);
+      if (newScout.error) { alert(newScout.error); return; }
+      setScouts(prev => [...prev, newScout]);
+    } else {
+      const updated = await api.put(`/api/scouts/${modal.id}`, data);
+      if (updated.error) { alert(updated.error); return; }
+      setScouts(prev => prev.map(s => s.id === modal.id ? updated : s));
+    }
+    setModal(null);
+  };
+
+  const handleDelete = async (id) => {
+    await api.del(`/api/scouts/${id}`);
+    setScouts(prev => prev.filter(s => s.id !== id));
+    setConfirmDel(null);
+  };
+
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search scouts..."
+            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+        </div>
+        <Btn onClick={() => setModal('add')} variant="gold">+ Add Scout</Btn>
+      </div>
+
+      <div className="space-y-6">
+        {RANKS.map(rank => {
+          const group = byRank[rank];
+          if (group.length === 0) return null;
+          const info = RANK_INFO[rank];
+          return (
+            <div key={rank}>
+              <h3 className="font-bold text-gray-600 text-sm uppercase tracking-wide mb-2 flex items-center gap-2">
+                {info.emoji} {rank === 'AOL' ? 'Arrow of Light' : rank} <span className="text-gray-400">({group.length})</span>
+              </h3>
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-600">Name</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden sm:table-cell">Den</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Parent</th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden lg:table-cell">Phone</th>
+                      <th className="px-4 py-3"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {group.map(s => (
+                      <tr key={s.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 font-semibold text-gray-800">{s.firstName} {s.lastName}</td>
+                        <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{s.den || '—'}</td>
+                        <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{s.parentName || '—'}</td>
+                        <td className="px-4 py-3 text-gray-500 hidden lg:table-cell">{s.parentPhone || '—'}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2 justify-end">
+                            <Btn size="sm" variant="secondary" onClick={() => setModal(s)}>Edit</Btn>
+                            <Btn size="sm" variant="danger" onClick={() => setConfirmDel(s)}>Delete</Btn>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })}
+        {filtered.length === 0 && <p className="text-center text-gray-400 py-8">No scouts found.</p>}
+      </div>
+
+      {modal && <ScoutModal scout={modal === 'add' ? null : modal} onSave={handleSave} onClose={() => setModal(null)} />}
+
+      {confirmDel && (
+        <Modal title="Confirm Delete" onClose={() => setConfirmDel(null)}>
+          <p className="text-gray-600 mb-6">Are you sure you want to delete <strong>{confirmDel.firstName} {confirmDel.lastName}</strong>? This will also delete all their awards and sign-ups.</p>
+          <div className="flex gap-3 justify-end">
+            <Btn variant="secondary" onClick={() => setConfirmDel(null)}>Cancel</Btn>
+            <Btn variant="danger" onClick={() => handleDelete(confirmDel.id)}>Delete Scout</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function ScoutModal({ scout, onSave, onClose }) {
+  const [form, setForm] = useState(scout ? {...scout} : { firstName:'', lastName:'', rank:'Tiger', den:'', grade:'', dateJoined:'', parentName:'', parentEmail:'', parentPhone:'', notes:'' });
+  const set = (k) => (e) => setForm(prev => ({...prev, [k]: e.target.value}));
+
+  return (
+    <Modal title={scout ? `Edit ${scout.firstName} ${scout.lastName}` : 'Add New Scout'} onClose={onClose} wide>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input label="First Name *" value={form.firstName} onChange={set('firstName')} placeholder="First name" />
+        <Input label="Last Name *" value={form.lastName} onChange={set('lastName')} placeholder="Last name" />
+        <Select label="Rank *" value={form.rank} onChange={set('rank')}>
+          {RANKS.map(r => <option key={r} value={r}>{r === 'AOL' ? 'AOL (Arrow of Light)' : r}</option>)}
+        </Select>
+        <Input label="Den" value={form.den||''} onChange={set('den')} placeholder="e.g. Den 3" />
+        <Select label="Grade" value={form.grade||''} onChange={set('grade')}>
+          <option value="">— Select grade —</option>
+          {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+        </Select>
+        <Input label="Date Joined" type="date" value={form.dateJoined||''} onChange={set('dateJoined')} />
+        <Input label="Parent / Guardian Name" value={form.parentName||''} onChange={set('parentName')} placeholder="Parent full name" />
+        <Input label="Parent Email" type="email" value={form.parentEmail||''} onChange={set('parentEmail')} placeholder="email@example.com" />
+        <Input label="Parent Phone" value={form.parentPhone||''} onChange={set('parentPhone')} placeholder="555-1234" />
+        <div className="sm:col-span-2">
+          <Textarea label="Notes" value={form.notes||''} onChange={set('notes')} placeholder="Any additional notes..." />
+        </div>
+      </div>
+      <div className="flex gap-3 justify-end mt-6">
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn variant="gold" onClick={() => onSave(form)}>{scout ? 'Save Changes' : 'Add Scout'}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Admin: Awards Tab ───────────────────────────────────────
+function AdminAwardsTab({ scouts }) {
+  const [selectedScout, setSelectedScout] = useState(null);
+  const [awards, setAwards] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [modal, setModal] = useState(null);
+  const [search, setSearch] = useState('');
+
+  const loadAwards = async (scout) => {
+    setSelectedScout(scout);
+    setLoading(true);
+    const data = await api.get(`/api/awards?scoutId=${scout.id}`);
+    setAwards(Array.isArray(data) ? data : []);
+    setLoading(false);
+  };
+
+  const loadDefaults = async () => {
+    if (!selectedScout) return;
+    const data = await api.post('/api/awards/bulk', { scoutId: selectedScout.id, rank: selectedScout.rank });
+    setAwards(Array.isArray(data) ? data : []);
+  };
+
+  const handleSave = async (data) => {
+    if (modal === 'add') {
+      const award = await api.post('/api/awards', { ...data, scoutId: selectedScout.id });
+      if (award.error) { alert(award.error); return; }
+      setAwards(prev => [...prev, award]);
+    } else {
+      const updated = await api.put(`/api/awards/${modal.id}`, data);
+      if (updated.error) { alert(updated.error); return; }
+      setAwards(prev => prev.map(a => a.id === modal.id ? updated : a));
+    }
+    setModal(null);
+  };
+
+  const handleDelete = async (id) => {
+    await api.del(`/api/awards/${id}`);
+    setAwards(prev => prev.filter(a => a.id !== id));
+  };
+
+  const filteredScouts = scouts.filter(s => {
+    const q = search.toLowerCase();
+    return !q || `${s.firstName} ${s.lastName}`.toLowerCase().includes(q);
+  });
+
+  return (
+    <div className="grid lg:grid-cols-5 gap-6">
+      <div className="lg:col-span-2">
+        <div className="relative mb-3">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search scouts..."
+            className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden max-h-[600px] overflow-y-auto">
+          {RANKS.map(rank => {
+            const group = filteredScouts.filter(s => s.rank === rank);
+            if (group.length === 0) return null;
+            return (
+              <div key={rank}>
+                <div className="px-4 py-2 bg-gray-50 text-xs font-bold text-gray-500 uppercase border-b border-gray-100">
+                  {RANK_INFO[rank].emoji} {rank}
+                </div>
+                {group.map(s => (
+                  <button key={s.id} onClick={() => loadAwards(s)}
+                    className={`w-full text-left px-4 py-3 text-sm border-b border-gray-50 transition-colors flex items-center justify-between ${selectedScout?.id===s.id ? 'bg-blue-50 text-blue-800' : 'hover:bg-gray-50'}`}>
+                    <span className="font-semibold">{s.firstName} {s.lastName}</span>
+                    <span className="text-gray-400 text-xs">{s.den||''}</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+          {filteredScouts.length === 0 && <p className="p-4 text-gray-400 text-sm text-center">No scouts found</p>}
+        </div>
+      </div>
+
+      <div className="lg:col-span-3">
+        {!selectedScout ? (
+          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-400">
+            <div className="text-4xl mb-3">🏅</div>
+            <p>Select a scout to manage their awards</p>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-bold text-gray-800 text-lg">{selectedScout.firstName} {selectedScout.lastName}</h3>
+                <RankBadge rank={selectedScout.rank} />
+              </div>
+              <div className="flex gap-2">
+                <Btn size="sm" variant="secondary" onClick={loadDefaults} title="Load BSA default awards for this rank">Load Defaults</Btn>
+                <Btn size="sm" variant="gold" onClick={() => setModal('add')}>+ Add Award</Btn>
+              </div>
+            </div>
+            {loading ? <Spinner /> : (
+              <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
+                {['rank_badge','required_adventure','elective_adventure','pin','belt_loop','nova','supernova'].map(type => {
+                  const typeAwards = awards.filter(a => a.type === type);
+                  if (typeAwards.length === 0) return null;
+                  return (
+                    <div key={type} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                      <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-600 uppercase">{AWARD_TYPE_LABELS[type]}</div>
+                      {typeAwards.map(award => (
+                        <div key={award.id} className="px-4 py-3 border-b border-gray-50 last:border-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-gray-800 text-sm">{award.name}</div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <StatusBadge status={award.status} />
+                                {award.dateEarned && <span className="text-xs text-gray-400">{award.dateEarned}</span>}
+                              </div>
+                              {award.status !== 'not_started' && (
+                                <div className="flex items-center gap-2 mt-1.5">
+                                  <div className="flex-1"><ProgressBar progress={award.progress} status={award.status} size="sm" /></div>
+                                  <span className="text-xs text-gray-400 w-7">{award.progress}%</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex gap-1 flex-shrink-0">
+                              <Btn size="sm" variant="secondary" onClick={() => setModal(award)}>Edit</Btn>
+                              <Btn size="sm" variant="danger" onClick={() => handleDelete(award.id)}>✕</Btn>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+                {awards.length === 0 && (
+                  <div className="bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-400">
+                    No awards yet. Click "Load Defaults" to add BSA awards for this rank.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {modal && (
+        <AwardModal award={modal === 'add' ? null : modal} onSave={handleSave} onClose={() => setModal(null)} />
+      )}
+    </div>
+  );
+}
+
+function AwardModal({ award, onSave, onClose }) {
+  const [form, setForm] = useState(award ? {...award} : { name:'', type:'elective_adventure', status:'not_started', progress:0, dateEarned:'', notes:'' });
+  const set = (k) => (e) => setForm(prev => ({...prev, [k]: e.target.value}));
+  const setNum = (k) => (e) => setForm(prev => ({...prev, [k]: parseInt(e.target.value)||0}));
+
+  return (
+    <Modal title={award ? 'Edit Award' : 'Add Award'} onClose={onClose}>
+      <div className="space-y-4">
+        <Input label="Award Name *" value={form.name} onChange={set('name')} placeholder="e.g. Bear Claws" />
+        <Select label="Award Type *" value={form.type} onChange={set('type')}>
+          {Object.entries(AWARD_TYPE_LABELS).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
+        </Select>
+        <Select label="Status" value={form.status} onChange={set('status')}>
+          <option value="not_started">Not Started</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+        </Select>
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-gray-700">Progress: {form.progress}%</label>
+          <input type="range" min="0" max="100" step="5" value={form.progress} onChange={setNum('progress')}
+            className="w-full accent-blue-700" />
+        </div>
+        {form.status === 'completed' && (
+          <Input label="Date Earned" type="date" value={form.dateEarned||''} onChange={set('dateEarned')} />
+        )}
+        <Textarea label="Notes" value={form.notes||''} onChange={set('notes')} placeholder="Notes about this award..." />
+      </div>
+      <div className="flex gap-3 justify-end mt-6">
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn variant="gold" onClick={() => onSave(form)}>{award ? 'Save Changes' : 'Add Award'}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Admin: Events Tab ───────────────────────────────────────
+function AdminEventsTab({ events, setEvents }) {
+  const [modal, setModal] = useState(null);
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [detailModal, setDetailModal] = useState(null);
+  const today = new Date().toISOString().split('T')[0];
+
+  const upcoming = events.filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date));
+  const past = events.filter(e => e.date < today).sort((a,b) => b.date.localeCompare(a.date));
+
+  const handleSave = async (data) => {
+    if (modal === 'add') {
+      const ev = await api.post('/api/events', data);
+      if (ev.error) { alert(ev.error); return; }
+      setEvents(prev => [...prev, ev]);
+    } else {
+      const updated = await api.put(`/api/events/${modal.id}`, data);
+      if (updated.error) { alert(updated.error); return; }
+      setEvents(prev => prev.map(e => e.id === modal.id ? updated : e));
+    }
+    setModal(null);
+  };
+
+  const handleDelete = async (id) => {
+    await api.del(`/api/events/${id}`);
+    setEvents(prev => prev.filter(e => e.id !== id));
+    setConfirmDel(null);
+  };
+
+  const openDetail = async (ev) => {
+    const detail = await api.get(`/api/events/${ev.id}`);
+    setDetailModal(detail.error ? ev : detail);
+  };
+
+  const EventRow = ({ ev }) => (
+    <tr className="hover:bg-gray-50">
+      <td className="px-4 py-3">
+        <div className="font-semibold text-gray-800">{ev.title}</div>
+        {ev.description && <div className="text-xs text-gray-400 truncate max-w-[200px]">{ev.description}</div>}
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{ev.date}{ev.time ? ', ' + ev.time : ''}</td>
+      <td className="px-4 py-3 text-sm text-gray-500 hidden md:table-cell">{ev.location || '—'}</td>
+      <td className="px-4 py-3 text-center">
+        <button onClick={() => openDetail(ev)} className="text-sm font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200">
+          👥 {ev.signupCount || 0}
+        </button>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex gap-2 justify-end">
+          <Btn size="sm" variant="secondary" onClick={() => setModal(ev)}>Edit</Btn>
+          <Btn size="sm" variant="danger" onClick={() => setConfirmDel(ev)}>Delete</Btn>
+        </div>
+      </td>
+    </tr>
+  );
+
+  const EventTable = ({ title, evList }) => (
+    <div>
+      <h3 className="font-bold text-gray-700 mb-3">{title}</h3>
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b border-gray-100">
+            <tr>
+              <th className="text-left px-4 py-3 font-semibold text-gray-600">Event</th>
+              <th className="text-left px-4 py-3 font-semibold text-gray-600">Date & Time</th>
+              <th className="text-left px-4 py-3 font-semibold text-gray-600 hidden md:table-cell">Location</th>
+              <th className="text-center px-4 py-3 font-semibold text-gray-600">Sign-ups</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {evList.map(ev => <EventRow key={ev.id} ev={ev} />)}
+          </tbody>
+        </table>
+        {evList.length === 0 && <p className="text-center text-gray-400 py-8 text-sm">No events.</p>}
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="flex justify-end mb-6">
+        <Btn variant="gold" onClick={() => setModal('add')}>+ Add Event</Btn>
+      </div>
+      <div className="space-y-8">
+        <EventTable title={`Upcoming Events (${upcoming.length})`} evList={upcoming} />
+        <EventTable title={`Past Events (${past.length})`} evList={past} />
+      </div>
+
+      {modal && <EventModal event={modal === 'add' ? null : modal} onSave={handleSave} onClose={() => setModal(null)} />}
+
+      {confirmDel && (
+        <Modal title="Delete Event?" onClose={() => setConfirmDel(null)}>
+          <p className="text-gray-600 mb-6">Delete <strong>{confirmDel.title}</strong>? All sign-ups for this event will also be removed.</p>
+          <div className="flex gap-3 justify-end">
+            <Btn variant="secondary" onClick={() => setConfirmDel(null)}>Cancel</Btn>
+            <Btn variant="danger" onClick={() => handleDelete(confirmDel.id)}>Delete Event</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {detailModal && (
+        <Modal title={`Sign-ups: ${detailModal.title}`} onClose={() => setDetailModal(null)} wide>
+          <p className="text-gray-500 text-sm mb-4">{detailModal.date}{detailModal.time ? ' at ' + detailModal.time : ''}{detailModal.location ? ' · ' + detailModal.location : ''}</p>
+          <p className="font-bold text-gray-700 mb-3">Total: {detailModal.signups ? detailModal.signups.length : 0} scout{detailModal.signups?.length !== 1 ? 's' : ''}</p>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {detailModal.signups && detailModal.signups.map(su => (
+              <div key={su.scoutId} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-2.5">
+                <div>
+                  <span className="font-semibold text-gray-800">{su.firstName} {su.lastName}</span>
+                  {su.parentName && <span className="text-sm text-gray-500 ml-2">· {su.parentName}</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <RankBadge rank={su.rank} />
+                  <span className="text-xs text-gray-400">{su.den || ''}</span>
+                </div>
+              </div>
+            ))}
+            {(!detailModal.signups || detailModal.signups.length === 0) && (
+              <p className="text-gray-400 text-center py-8">No sign-ups yet</p>
+            )}
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function EventModal({ event, onSave, onClose }) {
+  const [form, setForm] = useState(event ? {...event} : { title:'', date:'', time:'', location:'', description:'', maxSignups:'' });
+  const set = (k) => (e) => setForm(prev => ({...prev, [k]: e.target.value}));
+
+  return (
+    <Modal title={event ? 'Edit Event' : 'Add Event'} onClose={onClose} wide>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="sm:col-span-2">
+          <Input label="Event Title *" value={form.title} onChange={set('title')} placeholder="e.g. Monthly Pack Meeting" />
+        </div>
+        <Input label="Date *" type="date" value={form.date} onChange={set('date')} />
+        <Input label="Time" value={form.time||''} onChange={set('time')} placeholder="e.g. 6:30 PM" />
+        <div className="sm:col-span-2">
+          <Input label="Location" value={form.location||''} onChange={set('location')} placeholder="e.g. Community Center, Room 101" />
+        </div>
+        <div className="sm:col-span-2">
+          <Textarea label="Description" value={form.description||''} onChange={set('description')} placeholder="Event details, what to bring, etc." />
+        </div>
+        <Input label="Max Sign-ups (optional)" type="number" value={form.maxSignups||''} onChange={set('maxSignups')} placeholder="Leave blank for unlimited" />
+      </div>
+      <div className="flex gap-3 justify-end mt-6">
+        <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        <Btn variant="gold" onClick={() => onSave(form)}>{event ? 'Save Changes' : 'Add Event'}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Admin: Export Tab ───────────────────────────────────────
+function AdminExportTab({ scouts, events }) {
+  const today = new Date().toISOString().split('T')[0];
+  const upcomingEvents = events.filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date));
+  const pastEvents = events.filter(e => e.date < today).sort((a,b) => b.date.localeCompare(a.date));
+
+  const download = (url) => window.open(url, '_blank');
+
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <h3 className="font-bold text-gray-800 text-lg mb-1">📋 Master Scout Roster</h3>
+        <p className="text-sm text-gray-500 mb-4">Export all {scouts.length} scouts with contact information</p>
+        <Btn variant="success" onClick={() => download('/api/exports/all-scouts/csv')}>⬇ Download CSV</Btn>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <h3 className="font-bold text-gray-800 text-lg mb-1">👤 Scout Profile PDFs</h3>
+        <p className="text-sm text-gray-500 mb-4">Download a detailed profile PDF for any scout</p>
+        <div className="max-h-48 overflow-y-auto space-y-1.5">
+          {RANKS.map(rank => scouts.filter(s=>s.rank===rank).map(s => (
+            <div key={s.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+              <span className="text-sm font-semibold text-gray-700">{s.firstName} {s.lastName}</span>
+              <Btn size="sm" variant="secondary" onClick={() => download(`/api/exports/scout/${s.id}/pdf`)}>⬇ PDF</Btn>
+            </div>
+          )))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 md:col-span-2">
+        <h3 className="font-bold text-gray-800 text-lg mb-1">📅 Event Sign-Up Rosters</h3>
+        <p className="text-sm text-gray-500 mb-4">Export sign-up lists for any event in CSV or PDF format</p>
+        <div className="space-y-3">
+          {upcomingEvents.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase mb-2">Upcoming</p>
+              {upcomingEvents.map(ev => (
+                <div key={ev.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-2">
+                  <div>
+                    <span className="font-semibold text-gray-800">{ev.title}</span>
+                    <span className="text-sm text-gray-500 ml-2">· {ev.date} · {ev.signupCount||0} signed up</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Btn size="sm" variant="success" onClick={() => download(`/api/exports/event/${ev.id}/csv`)}>⬇ CSV</Btn>
+                    <Btn size="sm" variant="primary" onClick={() => download(`/api/exports/event/${ev.id}/pdf`)}>⬇ PDF</Btn>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {pastEvents.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase mb-2">Past Events</p>
+              {pastEvents.map(ev => (
+                <div key={ev.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 mb-2 opacity-70">
+                  <div>
+                    <span className="font-semibold text-gray-700">{ev.title}</span>
+                    <span className="text-sm text-gray-400 ml-2">· {ev.date} · {ev.signupCount||0} attended</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Btn size="sm" variant="success" onClick={() => download(`/api/exports/event/${ev.id}/csv`)}>⬇ CSV</Btn>
+                    <Btn size="sm" variant="primary" onClick={() => download(`/api/exports/event/${ev.id}/pdf`)}>⬇ PDF</Btn>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {events.length === 0 && <p className="text-gray-400 text-center py-4">No events yet.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Admin: Settings Tab ─────────────────────────────────────
+function AdminSettingsTab() {
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [msg, setMsg] = useState('');
+
+  const changePassword = async () => {
+    if (newPass !== confirmPass) { setMsg('❌ Passwords do not match'); return; }
+    if (newPass.length < 6) { setMsg('❌ Password must be at least 6 characters'); return; }
+    const res = await api.put('/api/auth/password', { newPassword: newPass });
+    if (res.success) { setMsg('✅ Password updated!'); setNewPass(''); setConfirmPass(''); }
+    else setMsg(`❌ ${res.error}`);
+  };
+
+  return (
+    <div className="max-w-md">
+      <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <h3 className="font-bold text-gray-800 text-lg mb-4">🔑 Change Admin Password</h3>
+        <div className="space-y-3">
+          <Input label="New Password" type="password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="At least 6 characters" />
+          <Input label="Confirm New Password" type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} placeholder="Repeat password" />
+          {msg && <div className={`text-sm px-3 py-2 rounded-lg ${msg.includes('✅') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>{msg}</div>}
+          <Btn onClick={changePassword} variant="primary">Update Password</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── App & Router ────────────────────────────────────────────
+function App() {
+  const [page, setPage] = useState('home');
+  const [selectedScoutId, setSelectedScoutId] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check admin session on load
+  useEffect(() => {
+    api.get('/api/auth/status').then(data => { if (data.isAdmin) setIsAdmin(true); });
+  }, []);
+
+  // Sync with URL hash
+  useEffect(() => {
+    const handler = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash.startsWith('/scout/')) {
+        setSelectedScoutId(parseInt(hash.split('/')[2]));
+        setPage('scout');
+      } else if (hash === '/calendar') setPage('calendar');
+      else if (hash === '/admin') setPage('admin');
+      else setPage('home');
+    };
+    window.addEventListener('hashchange', handler);
+    handler();
+    return () => window.removeEventListener('hashchange', handler);
+  }, []);
+
+  const navigate = (p) => {
+    const hashes = { home:'', calendar:'/calendar', admin:'/admin' };
+    window.location.hash = hashes[p] || '';
+    setPage(p);
+  };
+
+  const onAdminClick = () => {
+    navigate('admin');
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar page={page} setPage={navigate} isAdmin={isAdmin} onAdminClick={onAdminClick} />
+      <main>
+        {page === 'home'     && <HomePage setPage={navigate} setSelectedScoutId={setSelectedScoutId} />}
+        {page === 'scout'    && <ScoutPage scoutId={selectedScoutId} setPage={navigate} isAdmin={isAdmin} />}
+        {page === 'calendar' && <CalendarPage isAdmin={isAdmin} />}
+        {page === 'admin'    && <AdminPage isAdmin={isAdmin} setIsAdmin={setIsAdmin} />}
+      </main>
+      <footer className="text-center py-6 text-xs text-gray-400 mt-8 border-t border-gray-100">
+        ⚜️ Cub Scouts Pack Manager · Be Prepared
+      </footer>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

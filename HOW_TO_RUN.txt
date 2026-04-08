@@ -1,0 +1,61 @@
+=============================================
+  CUB SCOUTS PACK MANAGER - Quick Start
+=============================================
+
+REQUIREMENTS
+------------
+- Python 3.8 or newer (https://www.python.org/downloads/)
+- Internet connection (for first run, to install packages)
+
+HOW TO START
+------------
+
+  Mac / Linux:
+    1. Open Terminal
+    2. Run:  bash start.sh
+    3. Open browser to:  http://localhost:3000
+
+  Windows:
+    1. Open Command Prompt or PowerShell
+    2. Navigate to this folder
+    3. Run:  python server.py
+    4. Open browser to:  http://localhost:3000
+
+ADMIN ACCESS
+------------
+  URL:      http://localhost:3000  (click "Leader Login" in the navbar)
+  Password: cubmaster123
+  ⚠️  Change this in Admin > Settings after first login!
+
+FEATURES
+--------
+  Public (anyone can view):
+  - Home page: All scouts grouped by rank with progress bars
+  - Individual scout pages: awards, events signed up for
+  - Calendar: Upcoming and past events, sign up for events
+
+  Admin only (password required):
+  - Add / edit / delete scouts
+  - Track awards & advancement progress
+  - Add / edit / delete events
+  - View sign-up lists per event
+  - Export sign-up rosters as CSV or PDF
+  - Export master scout roster as CSV
+  - Export individual scout profiles as PDF
+
+DATA STORAGE
+------------
+  All data is stored in:  scouts.db  (in this folder)
+  Back up this file regularly to preserve your pack's data.
+
+RANKS SUPPORTED
+---------------
+  Lion (K), Tiger (1st), Wolf (2nd), Bear (3rd),
+  Webelos (4th), Arrow of Light (5th)
+
+SUPPORT
+-------
+  This app was built with Claude (Anthropic).
+  Data is stored locally — nothing is sent to the internet.
+
+=============================================
