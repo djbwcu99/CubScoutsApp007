@@ -381,9 +381,11 @@ function ScoutCard({ scout, onClick }) {
         <div className="flex items-start gap-3 mb-2">
           <ScoutAvatar scout={scout} size="md" />
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-gray-800 text-base leading-tight">{scout.firstName} {scout.lastName}</h3>
+            <div className="flex items-start justify-between gap-1">
+              <h3 className="font-bold text-gray-800 text-base leading-tight">{scout.firstName} {scout.lastName}</h3>
+              <RankBadge rank={scout.rank} />
+            </div>
             <p className="text-xs text-gray-500 mt-0.5">{scout.den || 'No den assigned'}</p>
-            <RankBadge rank={scout.rank} />
           </div>
         </div>
         {awards !== null && (
