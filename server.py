@@ -362,7 +362,7 @@ def init_db():
         stored = db.fetchone("SELECT value FROM settings WHERE key='admin_password'")
         pw_hash = stored['value'] if stored else hash_password('cubmaster123')
         db.execute(
-            "INSERT INTO users (username, name, passwordHash, role, den) VALUES (?,?,?,?,?)",
+            "INSERT INTO users (username, name, passwordhash, role, den) VALUES (?,?,?,?,?)",
             ('cubmaster', 'Cubmaster', pw_hash, 'pack_admin', None)
         )
 
@@ -371,7 +371,7 @@ def init_db():
     reset_pw = os.environ.get('RESET_ADMIN_PASSWORD', '').strip()
     if reset_pw:
         if len(reset_pw) >= 6:
-            db.execute("UPDATE users SET passwordHash=? WHERE username='cubmaster'", (hash_password(reset_pw),))
+            db.execute("UPDATE users SET passwordhash=? WHERE username='cubmaster'", (hash_password(reset_pw),))
             print(f"🔑 cubmaster password has been reset via RESET_ADMIN_PASSWORD env var.")
         else:
             print("⚠️  RESET_ADMIN_PASSWORD is set but too short (must be 6+ characters). Skipped.")
@@ -937,27 +937,34 @@ def auth_status():
 
 @app.route('/api/auth/login', methods=['POST'])
 def auth_login():
-    data = request.json or {}
-    username = data.get('username', '').strip().lower()
-    password = data.get('password', '')
-    if not username or not password:
-        return jsonify({'error': 'Username and password are required'}), 400
-    user = db.fetchone("SELECT * FROM users WHERE LOWER(username)=?", (username,))
-    if not user or not check_password(password, user['passwordHash']):
-        return jsonify({'error': 'Incorrect username or password'}), 401
-    session['is_admin'] = True
-    session['user_id'] = user['id']
-    session['username'] = user['username']
-    session['user_name'] = user['name'] or user['username']
-    session['role'] = user['role']
-    session['den'] = user['den']
-    return jsonify({
-        'success': True,
-        'role': user['role'],
-        'den': user['den'],
-        'username': user['username'],
-        'name': user['name'],
-    })
+    try:
+        data = request.json or {}
+        username = data.get('username', '').strip().lower()
+        password = data.get('password', '')
+        if not username or not password:
+            return jsonify({'error': 'Username and password are required'}), 400
+        user = db.fetchone("SELECT * FROM users WHERE LOWER(username)=?", (username,))
+        if not user:
+            return jsonify({'error': 'Incorrect username or password'}), 401
+        # PostgreSQL lowercases column names; handle both camelCase (SQLite) and lowercase (PG)
+        pw_hash = user.get('passwordHash') or user.get('passwordhash') or ''
+        if not pw_hash or not check_password(password, pw_hash):
+            return jsonify({'error': 'Incorrect username or password'}), 401
+        u_name = user.get('username') or user.get('Username', '')
+        u_display = user.get('name') or user.get('Name') or u_name
+        u_role = user.get('role') or user.get('Role') or 'pack_admin'
+        u_den = user.get('den') or user.get('Den')
+        u_id = user.get('id') or user.get('Id')
+        session['is_admin'] = True
+        session['user_id'] = u_id
+        session['username'] = u_name
+        session['user_name'] = u_display
+        session['role'] = u_role
+        session['den'] = u_den
+        return jsonify({'success': True, 'role': u_role, 'den': u_den, 'username': u_name, 'name': u_display})
+    except Exception as e:
+        print(f"Login error: {e}")
+        return jsonify({'error': f'Login error: {str(e)}'}), 500
 
 @app.route('/api/auth/logout', methods=['POST'])
 def auth_logout():
@@ -971,14 +978,14 @@ def auth_change_password():
     new_pw = data.get('newPassword', '')
     if len(new_pw) < 6:
         return jsonify({'error': 'Password must be at least 6 characters'}), 400
-    db.execute("UPDATE users SET passwordHash=? WHERE id=?", (hash_password(new_pw), session['user_id']))
+    db.execute("UPDATE users SET passwordhash=? WHERE id=?", (hash_password(new_pw), session['user_id']))
     return jsonify({'success': True})
 
 # ─── User Management Routes (pack_admin only) ─────────────────
 @app.route('/api/users', methods=['GET'])
 @require_pack_admin
 def get_users():
-    rows = db.fetchall("SELECT id, username, name, role, den, createdAt FROM users ORDER BY role, username")
+    rows = db.fetchall("SELECT id, username, name, role, den FROM users ORDER BY role, username")
     return jsonify(rows)
 
 @app.route('/api/users', methods=['POST'])
@@ -995,29 +1002,29 @@ def create_user():
     if existing:
         return jsonify({'error': 'Username already taken'}), 409
     new_id = db.execute(
-        "INSERT INTO users (username, name, passwordHash, role, den) VALUES (?,?,?,?,?)",
+        "INSERT INTO users (username, name, passwordhash, role, den) VALUES (?,?,?,?,?)",
         (username, d.get('name','').strip() or username, hash_password(password),
          d.get('role','den_leader'), d.get('den') or None)
     )
-    row = db.fetchone("SELECT id, username, name, role, den, createdAt FROM users WHERE id=?", (new_id,))
+    row = db.fetchone("SELECT id, username, name, role, den FROM users WHERE id=?", (new_id,))
     return jsonify(row), 201
 
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
 @require_pack_admin
 def update_user(user_id):
     d = request.json or {}
-    user = db.fetchone("SELECT * FROM users WHERE id=?", (user_id,))
+    user = db.fetchone("SELECT id, username, name, role, den FROM users WHERE id=?", (user_id,))
     if not user:
         return jsonify({'error': 'User not found'}), 404
-    name = d.get('name', user['name'])
-    role = d.get('role', user['role'])
+    name = d.get('name') or user.get('name') or user.get('Name', '')
+    role = d.get('role') or user.get('role') or user.get('Role', 'den_leader')
     den = d.get('den') or None
     db.execute("UPDATE users SET name=?, role=?, den=? WHERE id=?", (name, role, den, user_id))
     if d.get('password'):
         if len(d['password']) < 6:
             return jsonify({'error': 'Password must be at least 6 characters'}), 400
-        db.execute("UPDATE users SET passwordHash=? WHERE id=?", (hash_password(d['password']), user_id))
-    row = db.fetchone("SELECT id, username, name, role, den, createdAt FROM users WHERE id=?", (user_id,))
+        db.execute("UPDATE users SET passwordhash=? WHERE id=?", (hash_password(d['password']), user_id))
+    row = db.fetchone("SELECT id, username, name, role, den FROM users WHERE id=?", (user_id,))
     return jsonify(row)
 
 @app.route('/api/users/<int:user_id>', methods=['DELETE'])
