@@ -323,6 +323,15 @@ def init_db():
     schema = POSTGRES_SCHEMA if db.is_pg else SQLITE_SCHEMA
     db.execute_script(schema)
 
+    # Migrate: add photoData column to scouts if it doesn't exist yet
+    try:
+        if db.is_pg:
+            db.execute("ALTER TABLE scouts ADD COLUMN IF NOT EXISTS photoData TEXT", returning_id=False)
+        else:
+            db.execute("ALTER TABLE scouts ADD COLUMN photoData TEXT", returning_id=False)
+    except Exception:
+        pass  # Column already exists — that's fine
+
     # Set default admin password if not configured yet
     existing = db.fetchone("SELECT value FROM settings WHERE key='admin_password'")
     if not existing:
@@ -934,6 +943,20 @@ def update_scout(scout_id):
 @require_admin
 def delete_scout(scout_id):
     db.execute("DELETE FROM scouts WHERE id=?", (scout_id,))
+    return jsonify({'success': True})
+
+@app.route('/api/scouts/<int:scout_id>/photo', methods=['PUT'])
+@require_admin
+def set_scout_photo(scout_id):
+    d = request.json or {}
+    photo_data = d.get('photoData', '')  # base64 data URL, e.g. "data:image/jpeg;base64,..."
+    db.execute("UPDATE scouts SET photoData=? WHERE id=?", (photo_data or None, scout_id))
+    return jsonify({'success': True})
+
+@app.route('/api/scouts/<int:scout_id>/photo', methods=['DELETE'])
+@require_admin
+def delete_scout_photo(scout_id):
+    db.execute("UPDATE scouts SET photoData=NULL WHERE id=?", (scout_id,))
     return jsonify({'success': True})
 
 # ─── Award Routes ────────────────────────────────────────────

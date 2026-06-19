@@ -306,6 +306,60 @@ function HomePage({ setPage, setSelectedScoutId }) {
   );
 }
 
+function ScoutAvatar({ scout, size = 'md', isAdmin = false, onPhotoChange }) {
+  const info = RANK_INFO[scout.rank] || {};
+  const dim = size === 'lg' ? 'w-20 h-20 text-5xl' : size === 'sm' ? 'w-9 h-9 text-xl' : 'w-12 h-12 text-2xl';
+  const fileRef = React.useRef();
+
+  const handleFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) { alert('Image must be under 3 MB'); return; }
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target.result;
+      const r = await api.put(`/api/scouts/${scout.id}/photo`, { photoData: dataUrl });
+      if (r.success && onPhotoChange) onPhotoChange(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removePhoto = async (e) => {
+    e.stopPropagation();
+    await api.delete(`/api/scouts/${scout.id}/photo`);
+    if (onPhotoChange) onPhotoChange(null);
+  };
+
+  return (
+    <div className={`relative flex-shrink-0 ${dim} group`}>
+      {scout.photoData
+        ? <img src={scout.photoData} alt={scout.firstName}
+            className={`${dim} rounded-full object-cover border-2`}
+            style={{borderColor: info.color}} />
+        : <div className={`${dim} rounded-full flex items-center justify-center`}
+            style={{background: info.bg}}>
+            <span>{info.emoji}</span>
+          </div>
+      }
+      {isAdmin && (
+        <>
+          <button onClick={() => fileRef.current.click()}
+            className="absolute inset-0 rounded-full bg-black bg-opacity-0 group-hover:bg-opacity-40 flex items-center justify-center transition-all"
+            title="Upload photo">
+            <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-bold">📷</span>
+          </button>
+          {scout.photoData && (
+            <button onClick={removePhoto}
+              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+              title="Remove photo">✕</button>
+          )}
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        </>
+      )}
+    </div>
+  );
+}
+
 function ScoutCard({ scout, onClick }) {
   const [awards, setAwards] = useState(null);
   const info = RANK_INFO[scout.rank] || {};
@@ -324,16 +378,16 @@ function ScoutCard({ scout, onClick }) {
       style={{borderColor: info.border}}>
       <div className="h-2" style={{background: info.color}}></div>
       <div className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <div>
+        <div className="flex items-start gap-3 mb-2">
+          <ScoutAvatar scout={scout} size="md" />
+          <div className="flex-1 min-w-0">
             <h3 className="font-bold text-gray-800 text-base leading-tight">{scout.firstName} {scout.lastName}</h3>
             <p className="text-xs text-gray-500 mt-0.5">{scout.den || 'No den assigned'}</p>
+            <RankBadge rank={scout.rank} />
           </div>
-          <span className="text-2xl">{info.emoji}</span>
         </div>
-        <RankBadge rank={scout.rank} />
         {awards !== null && (
-          <div className="mt-3">
+          <div className="mt-2">
             <div className="flex justify-between text-xs text-gray-500 mb-1">
               <span>{completed}/{total} awards</span>
               <span>{overallPct}%</span>
@@ -529,10 +583,8 @@ function ScoutPage({ scoutId, setPage, isAdmin }) {
         <div className="h-3" style={{background:info.color}}></div>
         <div className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-            <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-5xl flex-shrink-0"
-              style={{background:info.bg}}>
-              {info.emoji}
-            </div>
+            <ScoutAvatar scout={scout} size="lg" isAdmin={isAdmin}
+              onPhotoChange={(url) => setScout(s => ({...s, photoData: url}))} />
             <div className="flex-1">
               <h1 className="text-3xl font-black text-gray-800">{scout.firstName} {scout.lastName}</h1>
               <div className="flex flex-wrap items-center gap-2 mt-2">
