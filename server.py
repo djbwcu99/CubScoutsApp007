@@ -257,6 +257,15 @@ SQLITE_SCHEMA = ["""
         completed INTEGER DEFAULT 0,
         sortOrder INTEGER DEFAULT 0,
         FOREIGN KEY (awardId) REFERENCES awards(id) ON DELETE CASCADE
+    )""", """
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        name TEXT,
+        passwordHash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'den_leader',
+        den TEXT,
+        createdAt TEXT DEFAULT (datetime('now'))
     )
 """]
 
@@ -315,6 +324,15 @@ POSTGRES_SCHEMA = ["""
         text TEXT NOT NULL,
         completed INTEGER DEFAULT 0,
         sortOrder INTEGER DEFAULT 0
+    )""", """
+    CREATE TABLE IF NOT EXISTS users (
+        id BIGSERIAL PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        name TEXT,
+        passwordHash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'den_leader',
+        den TEXT,
+        createdAt TIMESTAMP DEFAULT NOW()
     )
 """]
 
@@ -332,10 +350,21 @@ def init_db():
     except Exception:
         pass  # Column already exists — that's fine
 
-    # Set default admin password if not configured yet
-    existing = db.fetchone("SELECT value FROM settings WHERE key='admin_password'")
-    if not existing:
+    # Set default admin password in settings (legacy, kept for migration)
+    existing_setting = db.fetchone("SELECT value FROM settings WHERE key='admin_password'")
+    if not existing_setting:
         db.execute("INSERT INTO settings (key, value) VALUES (?, ?)", ('admin_password', hash_password('cubmaster123')), returning_id=False)
+
+    # Seed default cubmaster user if no users exist yet
+    user_count = db.scalar("SELECT COUNT(*) FROM users")
+    if user_count == 0:
+        # Use the stored settings password so existing installs keep working
+        stored = db.fetchone("SELECT value FROM settings WHERE key='admin_password'")
+        pw_hash = stored['value'] if stored else hash_password('cubmaster123')
+        db.execute(
+            "INSERT INTO users (username, name, passwordHash, role, den) VALUES (?,?,?,?,?)",
+            ('cubmaster', 'Cubmaster', pw_hash, 'pack_admin', None)
+        )
 
     # Seed sample data if the scouts table is empty
     count = db.scalar("SELECT COUNT(*) FROM scouts")
@@ -857,6 +886,7 @@ DEFAULT_REQUIREMENTS = {
 
 # ─── Auth Helpers ────────────────────────────────────────────
 def require_admin(f):
+    """Allow any logged-in user (pack_admin OR den_leader)."""
     @wraps(f)
     def decorated(*args, **kwargs):
         if not session.get('is_admin'):
@@ -864,22 +894,60 @@ def require_admin(f):
         return f(*args, **kwargs)
     return decorated
 
+def require_pack_admin(f):
+    """Allow only pack_admin users."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('is_admin') or session.get('role') != 'pack_admin':
+            return jsonify({'error': 'Unauthorized — pack admin access required'}), 401
+        return f(*args, **kwargs)
+    return decorated
+
+def current_user():
+    return {
+        'id': session.get('user_id'),
+        'username': session.get('username'),
+        'name': session.get('user_name'),
+        'role': session.get('role'),
+        'den': session.get('den'),
+    }
+
 # ─── Auth Routes ─────────────────────────────────────────────
 @app.route('/api/auth/status')
 def auth_status():
-    return jsonify({'isAdmin': bool(session.get('is_admin'))})
+    if session.get('is_admin'):
+        return jsonify({
+            'isAdmin': True,
+            'role': session.get('role', 'pack_admin'),
+            'den': session.get('den'),
+            'username': session.get('username'),
+            'name': session.get('user_name'),
+        })
+    return jsonify({'isAdmin': False})
 
 @app.route('/api/auth/login', methods=['POST'])
 def auth_login():
     data = request.json or {}
+    username = data.get('username', '').strip().lower()
     password = data.get('password', '')
-    row = db.fetchone("SELECT value FROM settings WHERE key='admin_password'")
-    if not row:
-        return jsonify({'error': 'No admin password configured'}), 500
-    if check_password(password, row['value']):
-        session['is_admin'] = True
-        return jsonify({'success': True})
-    return jsonify({'error': 'Incorrect password'}), 401
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
+    user = db.fetchone("SELECT * FROM users WHERE LOWER(username)=?", (username,))
+    if not user or not check_password(password, user['passwordHash']):
+        return jsonify({'error': 'Incorrect username or password'}), 401
+    session['is_admin'] = True
+    session['user_id'] = user['id']
+    session['username'] = user['username']
+    session['user_name'] = user['name'] or user['username']
+    session['role'] = user['role']
+    session['den'] = user['den']
+    return jsonify({
+        'success': True,
+        'role': user['role'],
+        'den': user['den'],
+        'username': user['username'],
+        'name': user['name'],
+    })
 
 @app.route('/api/auth/logout', methods=['POST'])
 def auth_logout():
@@ -893,13 +961,71 @@ def auth_change_password():
     new_pw = data.get('newPassword', '')
     if len(new_pw) < 6:
         return jsonify({'error': 'Password must be at least 6 characters'}), 400
-    db.execute("UPDATE settings SET value=? WHERE key='admin_password'", (hash_password(new_pw),))
+    db.execute("UPDATE users SET passwordHash=? WHERE id=?", (hash_password(new_pw), session['user_id']))
+    return jsonify({'success': True})
+
+# ─── User Management Routes (pack_admin only) ─────────────────
+@app.route('/api/users', methods=['GET'])
+@require_pack_admin
+def get_users():
+    rows = db.fetchall("SELECT id, username, name, role, den, createdAt FROM users ORDER BY role, username")
+    return jsonify(rows)
+
+@app.route('/api/users', methods=['POST'])
+@require_pack_admin
+def create_user():
+    d = request.json or {}
+    username = d.get('username', '').strip().lower()
+    if not username:
+        return jsonify({'error': 'Username is required'}), 400
+    password = d.get('password', '')
+    if len(password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+    existing = db.fetchone("SELECT id FROM users WHERE LOWER(username)=?", (username,))
+    if existing:
+        return jsonify({'error': 'Username already taken'}), 409
+    new_id = db.execute(
+        "INSERT INTO users (username, name, passwordHash, role, den) VALUES (?,?,?,?,?)",
+        (username, d.get('name','').strip() or username, hash_password(password),
+         d.get('role','den_leader'), d.get('den') or None)
+    )
+    row = db.fetchone("SELECT id, username, name, role, den, createdAt FROM users WHERE id=?", (new_id,))
+    return jsonify(row), 201
+
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+@require_pack_admin
+def update_user(user_id):
+    d = request.json or {}
+    user = db.fetchone("SELECT * FROM users WHERE id=?", (user_id,))
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    name = d.get('name', user['name'])
+    role = d.get('role', user['role'])
+    den = d.get('den') or None
+    db.execute("UPDATE users SET name=?, role=?, den=? WHERE id=?", (name, role, den, user_id))
+    if d.get('password'):
+        if len(d['password']) < 6:
+            return jsonify({'error': 'Password must be at least 6 characters'}), 400
+        db.execute("UPDATE users SET passwordHash=? WHERE id=?", (hash_password(d['password']), user_id))
+    row = db.fetchone("SELECT id, username, name, role, den, createdAt FROM users WHERE id=?", (user_id,))
+    return jsonify(row)
+
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@require_pack_admin
+def delete_user(user_id):
+    if user_id == session.get('user_id'):
+        return jsonify({'error': 'Cannot delete your own account'}), 400
+    db.execute("DELETE FROM users WHERE id=?", (user_id,))
     return jsonify({'success': True})
 
 # ─── Scout Routes ────────────────────────────────────────────
 @app.route('/api/scouts', methods=['GET'])
 def get_scouts():
-    rows = db.fetchall("SELECT * FROM scouts ORDER BY rank, lastName, firstName")
+    # Den leaders only see their assigned den
+    if session.get('is_admin') and session.get('role') == 'den_leader' and session.get('den'):
+        rows = db.fetchall("SELECT * FROM scouts WHERE den=? ORDER BY rank, lastName, firstName", (session['den'],))
+    else:
+        rows = db.fetchall("SELECT * FROM scouts ORDER BY rank, lastName, firstName")
     return jsonify(rows)
 
 @app.route('/api/scouts/<int:scout_id>', methods=['GET'])
@@ -1333,7 +1459,7 @@ def delete_slot_signup(signup_id):
     return jsonify({'success': True})
 
 @app.route('/api/settings/notifications', methods=['GET'])
-@require_admin
+@require_pack_admin
 def get_notification_settings():
     result = {
         'notification_email': get_setting('notification_email') or '',
@@ -1343,7 +1469,7 @@ def get_notification_settings():
     return jsonify(result)
 
 @app.route('/api/settings/notifications', methods=['PUT'])
-@require_admin
+@require_pack_admin
 def save_notification_settings():
     d = request.json or {}
     def upsert(key, value):
