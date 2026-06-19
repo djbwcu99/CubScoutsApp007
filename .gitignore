@@ -1,0 +1,23 @@
+# Database (each person keeps their own local copy)
+scouts.db
+scouts.db-journal
+*.db-shm
+*.db-wal
+
+# Node.js leftovers (not used — app runs on Python)
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
