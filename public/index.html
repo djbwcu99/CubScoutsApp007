@@ -50,10 +50,12 @@ const GRADES = ['Kindergarten','1st Grade','2nd Grade','3rd Grade','4th Grade','
 
 // ─── API Helper ─────────────────────────────────────────────
 const api = {
-  get: (url) => fetch(url).then(r => r.json()),
-  post: (url, body) => fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
-  put:  (url, body) => fetch(url, { method:'PUT',  headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
-  del:  (url, body) => fetch(url, { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
+  get:    (url)       => fetch(url).then(r => r.json()),
+  post:   (url, body) => fetch(url, { method:'POST',   headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
+  put:    (url, body) => fetch(url, { method:'PUT',    headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
+  patch:  (url, body) => fetch(url, { method:'PATCH',  headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
+  delete: (url)       => fetch(url, { method:'DELETE', headers:{'Content-Type':'application/json'} }).then(r => r.json()),
+  del:    (url, body) => fetch(url, { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
 };
 
 // ─── Shared Components ──────────────────────────────────────
@@ -348,6 +350,128 @@ function ScoutCard({ scout, onClick }) {
 }
 
 // ─── Scout Detail Page ───────────────────────────────────────
+function AwardRow({ award, isAdmin, onAwardUpdated }) {
+  const [open, setOpen] = useState(false);
+  const [reqs, setReqs] = useState(null); // null = not loaded yet
+  const [newReqText, setNewReqText] = useState('');
+  const [addingReq, setAddingReq] = useState(false);
+  const [localAward, setLocalAward] = useState(award);
+
+  useEffect(() => { setLocalAward(award); }, [award]);
+
+  const loadReqs = async () => {
+    const data = await api.get(`/api/awards/${award.id}/requirements`);
+    setReqs(Array.isArray(data) ? data : []);
+  };
+
+  const toggle = () => {
+    if (!open && reqs === null) loadReqs();
+    setOpen(o => !o);
+  };
+
+  const toggleReq = async (req) => {
+    const updated = await api.patch(`/api/requirements/${req.id}`, { completed: req.completed ? 0 : 1 });
+    if (!updated.error) {
+      setReqs(r => r.map(x => x.id === req.id ? updated : x));
+      // Refresh award progress from server
+      const fresh = await api.get(`/api/awards?scoutId=${award.scoutId}`);
+      if (Array.isArray(fresh)) {
+        const a = fresh.find(x => x.id === award.id);
+        if (a) setLocalAward(a);
+      }
+      if (onAwardUpdated) onAwardUpdated();
+    }
+  };
+
+  const addReq = async () => {
+    if (!newReqText.trim()) return;
+    const r = await api.post(`/api/awards/${award.id}/requirements`, { text: newReqText.trim() });
+    if (!r.error) { setReqs(prev => [...(prev||[]), r]); setNewReqText(''); setAddingReq(false); }
+  };
+
+  const deleteReq = async (req) => {
+    const r = await api.delete(`/api/requirements/${req.id}`);
+    if (r.success) { setReqs(prev => prev.filter(x => x.id !== req.id)); if (onAwardUpdated) onAwardUpdated(); }
+  };
+
+  const completedCount = reqs ? reqs.filter(r => r.completed).length : null;
+  const totalCount = reqs ? reqs.length : null;
+
+  return (
+    <div>
+      <div className="px-5 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={toggle}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-gray-400 text-xs transition-transform" style={{display:'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)'}}>▶</span>
+              <span className="font-semibold text-gray-800 text-sm">{localAward.name}</span>
+              <StatusBadge status={localAward.status} />
+              {localAward.dateEarned && <span className="text-xs text-gray-400">📅 {localAward.dateEarned}</span>}
+              {reqs !== null && totalCount > 0 && (
+                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{completedCount}/{totalCount}</span>
+              )}
+            </div>
+            {localAward.status !== 'not_started' && (
+              <div className="mt-2 flex items-center gap-3 pl-4">
+                <div className="flex-1"><ProgressBar progress={localAward.progress} status={localAward.status} size="sm" /></div>
+                <span className="text-xs text-gray-500 w-8 text-right">{localAward.progress}%</span>
+              </div>
+            )}
+            {localAward.notes && <p className="text-xs text-gray-400 mt-1 italic pl-4">{localAward.notes}</p>}
+          </div>
+        </div>
+      </div>
+
+      {open && (
+        <div className="bg-gray-50 border-t border-gray-100 px-5 py-3">
+          {reqs === null && <p className="text-xs text-gray-400 py-2">Loading…</p>}
+          {reqs !== null && reqs.length === 0 && !isAdmin && (
+            <p className="text-xs text-gray-400 italic py-1">No requirements added yet.</p>
+          )}
+          {reqs !== null && (
+            <div className="space-y-2">
+              {reqs.map(req => (
+                <div key={req.id} className="flex items-start gap-2 group">
+                  <input type="checkbox" checked={!!req.completed}
+                    onChange={() => isAdmin && toggleReq(req)}
+                    disabled={!isAdmin}
+                    className="mt-0.5 w-4 h-4 rounded accent-emerald-600 cursor-pointer flex-shrink-0" />
+                  <span className={`text-sm flex-1 ${req.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>{req.text}</span>
+                  {isAdmin && (
+                    <button onClick={() => deleteReq(req)}
+                      className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs px-1 transition-opacity flex-shrink-0">✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isAdmin && (
+            <div className="mt-3 border-t border-gray-200 pt-3">
+              {addingReq ? (
+                <div className="flex gap-2">
+                  <input autoFocus value={newReqText} onChange={e => setNewReqText(e.target.value)}
+                    onKeyDown={e => { if (e.key==='Enter') addReq(); if (e.key==='Escape') setAddingReq(false); }}
+                    placeholder="Requirement text…"
+                    className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400" />
+                  <button onClick={addReq} className="text-sm bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700">Add</button>
+                  <button onClick={() => { setAddingReq(false); setNewReqText(''); }}
+                    className="text-sm text-gray-400 hover:text-gray-600 px-2">Cancel</button>
+                </div>
+              ) : (
+                <button onClick={() => setAddingReq(true)}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1">
+                  + Add Requirement
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ScoutPage({ scoutId, setPage, isAdmin }) {
   const [scout, setScout] = useState(null);
   const [awards, setAwards] = useState([]);
@@ -457,24 +581,7 @@ function ScoutPage({ scoutId, setPage, isAdmin }) {
               </div>
               <div className="divide-y divide-gray-50">
                 {typeAwards.map(award => (
-                  <div key={award.id} className="px-5 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-gray-800 text-sm truncate">{award.name}</span>
-                          <StatusBadge status={award.status} />
-                          {award.dateEarned && <span className="text-xs text-gray-400">📅 {award.dateEarned}</span>}
-                        </div>
-                        {award.status !== 'not_started' && (
-                          <div className="mt-2 flex items-center gap-3">
-                            <div className="flex-1"><ProgressBar progress={award.progress} status={award.status} size="sm" /></div>
-                            <span className="text-xs text-gray-500 w-8 text-right">{award.progress}%</span>
-                          </div>
-                        )}
-                        {award.notes && <p className="text-xs text-gray-400 mt-1 italic">{award.notes}</p>}
-                      </div>
-                    </div>
-                  </div>
+                  <AwardRow key={award.id} award={award} isAdmin={isAdmin} onAwardUpdated={load} />
                 ))}
               </div>
             </div>
@@ -1126,6 +1233,110 @@ function ScoutModal({ scout, onSave, onClose }) {
 }
 
 // ─── Admin: Awards Tab ───────────────────────────────────────
+function AdminAwardRow({ award, onEdit, onDelete, onUpdated }) {
+  const [open, setOpen] = useState(false);
+  const [reqs, setReqs] = useState(null);
+  const [newReqText, setNewReqText] = useState('');
+  const [addingReq, setAddingReq] = useState(false);
+  const [localAward, setLocalAward] = useState(award);
+
+  useEffect(() => { setLocalAward(award); }, [award]);
+
+  const loadReqs = async () => {
+    const data = await api.get(`/api/awards/${award.id}/requirements`);
+    setReqs(Array.isArray(data) ? data : []);
+  };
+
+  const togglePanel = () => {
+    if (!open && reqs === null) loadReqs();
+    setOpen(o => !o);
+  };
+
+  const toggleReq = async (req) => {
+    const updated = await api.patch(`/api/requirements/${req.id}`, { completed: req.completed ? 0 : 1 });
+    if (!updated.error) { setReqs(r => r.map(x => x.id === req.id ? updated : x)); if (onUpdated) onUpdated(); }
+  };
+
+  const addReq = async () => {
+    if (!newReqText.trim()) return;
+    const r = await api.post(`/api/awards/${award.id}/requirements`, { text: newReqText.trim() });
+    if (!r.error) { setReqs(prev => [...(prev||[]), r]); setNewReqText(''); setAddingReq(false); }
+  };
+
+  const deleteReq = async (req) => {
+    const r = await api.delete(`/api/requirements/${req.id}`);
+    if (r.success) { setReqs(prev => prev.filter(x => x.id !== req.id)); if (onUpdated) onUpdated(); }
+  };
+
+  const completedCount = reqs ? reqs.filter(r => r.completed).length : null;
+  const totalCount = reqs ? reqs.length : null;
+
+  return (
+    <div className="border-b border-gray-50 last:border-0">
+      <div className="px-4 py-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0 cursor-pointer" onClick={togglePanel}>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-gray-400 text-xs" style={{display:'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform 0.15s'}}>▶</span>
+              <span className="font-semibold text-gray-800 text-sm">{localAward.name}</span>
+              <StatusBadge status={localAward.status} />
+              {localAward.dateEarned && <span className="text-xs text-gray-400">{localAward.dateEarned}</span>}
+              {reqs !== null && totalCount > 0 && (
+                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{completedCount}/{totalCount}</span>
+              )}
+            </div>
+            {localAward.status !== 'not_started' && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex-1"><ProgressBar progress={localAward.progress} status={localAward.status} size="sm" /></div>
+                <span className="text-xs text-gray-400 w-7">{localAward.progress}%</span>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-1 flex-shrink-0">
+            <Btn size="sm" variant="secondary" onClick={onEdit}>Edit</Btn>
+            <Btn size="sm" variant="danger" onClick={onDelete}>✕</Btn>
+          </div>
+        </div>
+      </div>
+      {open && (
+        <div className="bg-gray-50 border-t border-gray-100 px-4 py-3 mx-0">
+          {reqs === null && <p className="text-xs text-gray-400">Loading…</p>}
+          {reqs !== null && (
+            <div className="space-y-2">
+              {reqs.map(req => (
+                <div key={req.id} className="flex items-start gap-2 group">
+                  <input type="checkbox" checked={!!req.completed} onChange={() => toggleReq(req)}
+                    className="mt-0.5 w-4 h-4 rounded accent-emerald-600 cursor-pointer flex-shrink-0" />
+                  <span className={`text-sm flex-1 ${req.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>{req.text}</span>
+                  <button onClick={() => deleteReq(req)}
+                    className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs px-1 transition-opacity flex-shrink-0">✕</button>
+                </div>
+              ))}
+              {reqs.length === 0 && <p className="text-xs text-gray-400 italic">No requirements yet.</p>}
+            </div>
+          )}
+          <div className="mt-3 border-t border-gray-200 pt-3">
+            {addingReq ? (
+              <div className="flex gap-2">
+                <input autoFocus value={newReqText} onChange={e => setNewReqText(e.target.value)}
+                  onKeyDown={e => { if (e.key==='Enter') addReq(); if (e.key==='Escape') setAddingReq(false); }}
+                  placeholder="Requirement text…"
+                  className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400" />
+                <button onClick={addReq} className="text-sm bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700">Add</button>
+                <button onClick={() => { setAddingReq(false); setNewReqText(''); }}
+                  className="text-sm text-gray-400 hover:text-gray-600 px-2">Cancel</button>
+              </div>
+            ) : (
+              <button onClick={() => setAddingReq(true)}
+                className="text-xs text-blue-600 hover:text-blue-800 font-semibold">+ Add Requirement</button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminAwardsTab({ scouts }) {
   const [selectedScout, setSelectedScout] = useState(null);
   const [awards, setAwards] = useState([]);
@@ -1228,27 +1439,10 @@ function AdminAwardsTab({ scouts }) {
                     <div key={type} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
                       <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-600 uppercase">{AWARD_TYPE_LABELS[type]}</div>
                       {typeAwards.map(award => (
-                        <div key={award.id} className="px-4 py-3 border-b border-gray-50 last:border-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-gray-800 text-sm">{award.name}</div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <StatusBadge status={award.status} />
-                                {award.dateEarned && <span className="text-xs text-gray-400">{award.dateEarned}</span>}
-                              </div>
-                              {award.status !== 'not_started' && (
-                                <div className="flex items-center gap-2 mt-1.5">
-                                  <div className="flex-1"><ProgressBar progress={award.progress} status={award.status} size="sm" /></div>
-                                  <span className="text-xs text-gray-400 w-7">{award.progress}%</span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex gap-1 flex-shrink-0">
-                              <Btn size="sm" variant="secondary" onClick={() => setModal(award)}>Edit</Btn>
-                              <Btn size="sm" variant="danger" onClick={() => handleDelete(award.id)}>✕</Btn>
-                            </div>
-                          </div>
-                        </div>
+                        <AdminAwardRow key={award.id} award={award}
+                          onEdit={() => setModal(award)}
+                          onDelete={() => handleDelete(award.id)}
+                          onUpdated={() => { api.get(`/api/awards?scoutId=${selectedScout.id}`).then(d => setAwards(Array.isArray(d) ? d : [])); }} />
                       ))}
                     </div>
                   );

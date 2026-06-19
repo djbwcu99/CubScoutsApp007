@@ -249,6 +249,14 @@ SQLITE_SCHEMA = ["""
         notes TEXT,
         signupDate TEXT DEFAULT (datetime('now')),
         FOREIGN KEY (slotId) REFERENCES event_slots(id) ON DELETE CASCADE
+    )""", """
+    CREATE TABLE IF NOT EXISTS award_requirements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        awardId INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        completed INTEGER DEFAULT 0,
+        sortOrder INTEGER DEFAULT 0,
+        FOREIGN KEY (awardId) REFERENCES awards(id) ON DELETE CASCADE
     )
 """]
 
@@ -300,6 +308,13 @@ POSTGRES_SCHEMA = ["""
         phone TEXT,
         notes TEXT,
         signupDate TIMESTAMP DEFAULT NOW()
+    )""", """
+    CREATE TABLE IF NOT EXISTS award_requirements (
+        id BIGSERIAL PRIMARY KEY,
+        awardId BIGINT NOT NULL REFERENCES awards(id) ON DELETE CASCADE,
+        text TEXT NOT NULL,
+        completed INTEGER DEFAULT 0,
+        sortOrder INTEGER DEFAULT 0
     )
 """]
 
@@ -627,6 +642,70 @@ def bulk_awards():
                        (scout_id, name, atype, 'not_started', 0))
     rows = db.fetchall("SELECT * FROM awards WHERE scoutId=? ORDER BY type, name", (scout_id,))
     return jsonify(rows)
+
+# ─── Award Requirement Routes ─────────────────────────────────
+@app.route('/api/awards/<int:award_id>/requirements', methods=['GET'])
+def get_requirements(award_id):
+    rows = db.fetchall("SELECT * FROM award_requirements WHERE awardId=? ORDER BY sortOrder, id", (award_id,))
+    return jsonify(rows)
+
+@app.route('/api/awards/<int:award_id>/requirements', methods=['POST'])
+@require_admin
+def add_requirement(award_id):
+    d = request.json or {}
+    text = d.get('text', '').strip()
+    if not text:
+        return jsonify({'error': 'text required'}), 400
+    sort_order = db.scalar("SELECT COUNT(*) FROM award_requirements WHERE awardId=?", (award_id,))
+    new_id = db.execute(
+        "INSERT INTO award_requirements (awardId, text, completed, sortOrder) VALUES (?,?,0,?)",
+        (award_id, text, sort_order)
+    )
+    row = db.fetchone("SELECT * FROM award_requirements WHERE id=?", (new_id,))
+    return jsonify(row), 201
+
+@app.route('/api/requirements/<int:req_id>', methods=['PATCH'])
+@require_admin
+def update_requirement(req_id):
+    d = request.json or {}
+    req = db.fetchone("SELECT * FROM award_requirements WHERE id=?", (req_id,))
+    if not req:
+        return jsonify({'error': 'Not found'}), 404
+    text = d.get('text', req['text'])
+    completed = int(d.get('completed', req['completed']))
+    db.execute("UPDATE award_requirements SET text=?, completed=? WHERE id=?", (text, completed, req_id))
+    # Auto-update parent award progress and status
+    award_id = req['awardId']
+    total = db.scalar("SELECT COUNT(*) FROM award_requirements WHERE awardId=?", (award_id,))
+    done = db.scalar("SELECT COUNT(*) FROM award_requirements WHERE awardId=? AND completed=1", (award_id,))
+    if total > 0:
+        progress = round((done / total) * 100)
+        if done == total:
+            status = 'completed'
+        elif done > 0:
+            status = 'in_progress'
+        else:
+            status = 'not_started'
+        db.execute("UPDATE awards SET progress=?, status=? WHERE id=?", (progress, status, award_id))
+    row = db.fetchone("SELECT * FROM award_requirements WHERE id=?", (req_id,))
+    return jsonify(row)
+
+@app.route('/api/requirements/<int:req_id>', methods=['DELETE'])
+@require_admin
+def delete_requirement(req_id):
+    req = db.fetchone("SELECT * FROM award_requirements WHERE id=?", (req_id,))
+    if not req:
+        return jsonify({'error': 'Not found'}), 404
+    award_id = req['awardId']
+    db.execute("DELETE FROM award_requirements WHERE id=?", (req_id,))
+    # Recalculate progress after deletion
+    total = db.scalar("SELECT COUNT(*) FROM award_requirements WHERE awardId=?", (award_id,))
+    if total > 0:
+        done = db.scalar("SELECT COUNT(*) FROM award_requirements WHERE awardId=? AND completed=1", (award_id,))
+        progress = round((done / total) * 100)
+        status = 'completed' if done == total else ('in_progress' if done > 0 else 'not_started')
+        db.execute("UPDATE awards SET progress=?, status=? WHERE id=?", (progress, status, award_id))
+    return jsonify({'success': True})
 
 # ─── Event Routes ─────────────────────────────────────────────
 @app.route('/api/events', methods=['GET'])
