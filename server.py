@@ -229,6 +229,27 @@ SQLITE_SCHEMA = ["""
         UNIQUE(scoutId, eventId)
     )""", """
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)
+""", """
+    CREATE TABLE IF NOT EXISTS event_slots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        eventId INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        capacity INTEGER,
+        sortOrder INTEGER DEFAULT 0,
+        createdAt TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (eventId) REFERENCES events(id) ON DELETE CASCADE
+    )""", """
+    CREATE TABLE IF NOT EXISTS slot_signups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        slotId INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        notes TEXT,
+        signupDate TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (slotId) REFERENCES event_slots(id) ON DELETE CASCADE
+    )
 """]
 
 POSTGRES_SCHEMA = ["""
@@ -261,6 +282,25 @@ POSTGRES_SCHEMA = ["""
         UNIQUE(scoutId, eventId)
     )""", """
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)
+""", """
+    CREATE TABLE IF NOT EXISTS event_slots (
+        id BIGSERIAL PRIMARY KEY,
+        eventId BIGINT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT,
+        capacity INTEGER,
+        sortOrder INTEGER DEFAULT 0,
+        createdAt TIMESTAMP DEFAULT NOW()
+    )""", """
+    CREATE TABLE IF NOT EXISTS slot_signups (
+        id BIGSERIAL PRIMARY KEY,
+        slotId BIGINT NOT NULL REFERENCES event_slots(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        notes TEXT,
+        signupDate TIMESTAMP DEFAULT NOW()
+    )
 """]
 
 
@@ -702,6 +742,144 @@ def delete_signup():
 @app.route('/api/signups/<int:signup_id>', methods=['DELETE'])
 def delete_signup_by_id(signup_id):
     db.execute("DELETE FROM signups WHERE id=?", (signup_id,))
+    return jsonify({'success': True})
+
+# ─── Email Notification ──────────────────────────────────────
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+def get_setting(key):
+    row = db.fetchone("SELECT value FROM settings WHERE key=?", (key,))
+    return row['value'] if row else None
+
+def send_email_notification(subject, body_html):
+    """Send email to pack leader. Returns True on success."""
+    try:
+        to_email   = get_setting('notification_email')
+        smtp_user  = os.environ.get('SMTP_USER')  or get_setting('smtp_user')
+        smtp_pass  = os.environ.get('SMTP_PASS')  or get_setting('smtp_pass')
+        smtp_host  = os.environ.get('SMTP_HOST',  'smtp.gmail.com')
+        smtp_port  = int(os.environ.get('SMTP_PORT', 587))
+        if not to_email or not smtp_user or not smtp_pass:
+            return False
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From']    = smtp_user
+        msg['To']      = to_email
+        msg.attach(MIMEText(body_html, 'html'))
+        with smtplib.SMTP(smtp_host, smtp_port) as server:
+            server.ehlo(); server.starttls(); server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_user, [to_email], msg.as_string())
+        return True
+    except Exception as e:
+        print(f"Email error: {e}")
+        return False
+
+# ─── Sign-Up Slots Routes ────────────────────────────────────
+@app.route('/api/events/<int:event_id>/slots', methods=['GET'])
+def get_event_slots(event_id):
+    slots = db.fetchall("SELECT * FROM event_slots WHERE eventId=? ORDER BY sortOrder, id", (event_id,))
+    for slot in slots:
+        slot['signups'] = db.fetchall("SELECT * FROM slot_signups WHERE slotId=? ORDER BY signupDate", (slot['id'],))
+        slot['signupCount'] = len(slot['signups'])
+    return jsonify(slots)
+
+@app.route('/api/events/<int:event_id>/slots', methods=['POST'])
+@require_admin
+def create_slot(event_id):
+    d = request.json or {}
+    if not d.get('title'):
+        return jsonify({'error': 'title is required'}), 400
+    new_id = db.execute(
+        "INSERT INTO event_slots (eventId, title, description, capacity, sortOrder) VALUES (?,?,?,?,?)",
+        (event_id, d['title'], d.get('description'), d.get('capacity') or None, d.get('sortOrder', 0))
+    )
+    slot = db.fetchone("SELECT * FROM event_slots WHERE id=?", (new_id,))
+    slot['signups'] = []; slot['signupCount'] = 0
+    return jsonify(slot), 201
+
+@app.route('/api/slots/<int:slot_id>', methods=['PUT'])
+@require_admin
+def update_slot(slot_id):
+    d = request.json or {}
+    db.execute(
+        "UPDATE event_slots SET title=?, description=?, capacity=?, sortOrder=? WHERE id=?",
+        (d.get('title'), d.get('description'), d.get('capacity') or None, d.get('sortOrder', 0), slot_id)
+    )
+    slot = db.fetchone("SELECT * FROM event_slots WHERE id=?", (slot_id,))
+    slot['signups'] = db.fetchall("SELECT * FROM slot_signups WHERE slotId=? ORDER BY signupDate", (slot_id,))
+    slot['signupCount'] = len(slot['signups'])
+    return jsonify(slot)
+
+@app.route('/api/slots/<int:slot_id>', methods=['DELETE'])
+@require_admin
+def delete_slot(slot_id):
+    db.execute("DELETE FROM event_slots WHERE id=?", (slot_id,))
+    return jsonify({'success': True})
+
+@app.route('/api/slots/<int:slot_id>/signup', methods=['POST'])
+def create_slot_signup(slot_id):
+    d = request.json or {}
+    name = (d.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'name is required'}), 400
+    slot = db.fetchone("SELECT * FROM event_slots WHERE id=?", (slot_id,))
+    if not slot:
+        return jsonify({'error': 'Slot not found'}), 404
+    if slot['capacity']:
+        count = db.scalar("SELECT COUNT(*) FROM slot_signups WHERE slotId=?", (slot_id,))
+        if count >= slot['capacity']:
+            return jsonify({'error': 'This slot is full'}), 409
+    new_id = db.execute(
+        "INSERT INTO slot_signups (slotId, name, email, phone, notes) VALUES (?,?,?,?,?)",
+        (slot_id, name, d.get('email'), d.get('phone'), d.get('notes'))
+    )
+    signup = db.fetchone("SELECT * FROM slot_signups WHERE id=?", (new_id,))
+    try:
+        ev = db.fetchone("SELECT title, date FROM events WHERE id=?", (slot['eventId'],))
+        subject = f"New sign-up: {ev['title']} — {slot['title']}"
+        lines = [f"<p><b>Event:</b> {ev['title']} on {ev['date']}</p>",
+                 f"<p><b>Slot:</b> {slot['title']}</p>",
+                 f"<p><b>Name:</b> {name}</p>"]
+        if d.get('email'): lines.append(f"<p><b>Email:</b> {d['email']}</p>")
+        if d.get('phone'): lines.append(f"<p><b>Phone:</b> {d['phone']}</p>")
+        if d.get('notes'): lines.append(f"<p><b>Notes:</b> {d['notes']}</p>")
+        send_email_notification(subject, "<h3>New Sign-Up Received ⚜️</h3>" + ''.join(lines))
+    except Exception:
+        pass
+    return jsonify(signup), 201
+
+@app.route('/api/slot-signups/<int:signup_id>', methods=['DELETE'])
+@require_admin
+def delete_slot_signup(signup_id):
+    db.execute("DELETE FROM slot_signups WHERE id=?", (signup_id,))
+    return jsonify({'success': True})
+
+@app.route('/api/settings/notifications', methods=['GET'])
+@require_admin
+def get_notification_settings():
+    result = {
+        'notification_email': get_setting('notification_email') or '',
+        'smtp_user':          get_setting('smtp_user') or '',
+        'smtp_pass_set':      bool(get_setting('smtp_pass')),
+    }
+    return jsonify(result)
+
+@app.route('/api/settings/notifications', methods=['PUT'])
+@require_admin
+def save_notification_settings():
+    d = request.json or {}
+    def upsert(key, value):
+        if value is None: return
+        if db.fetchone("SELECT key FROM settings WHERE key=?", (key,)):
+            db.execute("UPDATE settings SET value=? WHERE key=?", (value, key))
+        else:
+            db.execute("INSERT INTO settings (key, value) VALUES (?,?)", (key, value), returning_id=False)
+    upsert('notification_email', d.get('notification_email'))
+    upsert('smtp_user', d.get('smtp_user'))
+    if d.get('smtp_pass'):
+        upsert('smtp_pass', d['smtp_pass'])
     return jsonify({'success': True})
 
 # ─── Export Routes ───────────────────────────────────────────

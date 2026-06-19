@@ -724,6 +724,115 @@ function EventDetail({ event, scouts, onSignup, onRemove, isAdmin, onClose }) {
             <p className="text-gray-400 text-sm text-center py-4">No signups yet</p>
           )}
         </div>
+        <SignUpSlots eventId={event.id} isAdmin={isAdmin} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Sign-Up Slots (public + admin) ─────────────────────────
+function SignUpSlots({ eventId, isAdmin }) {
+  const [slots, setSlots] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [signupForm, setSignupForm] = useState(null);
+  const [form, setForm] = useState({ name:'', email:'', phone:'' });
+  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const fetchSlots = useCallback(async () => {
+    const data = await api.get(`/api/events/${eventId}/slots`);
+    if (!data.error) setSlots(data);
+    setLoading(false);
+  }, [eventId]);
+
+  useEffect(() => { fetchSlots(); }, [fetchSlots]);
+
+  const handleSignup = async (slotId) => {
+    if (!form.name.trim()) { setMsg('Please enter your name'); return; }
+    setSubmitting(true);
+    const res = await api.post(`/api/slots/${slotId}/signup`, form);
+    setSubmitting(false);
+    if (res.error) { setMsg(res.error); return; }
+    setSignupForm(null); setForm({ name:'', email:'', phone:'' }); setMsg('');
+    fetchSlots();
+  };
+
+  const handleRemove = async (signupId) => {
+    await api.del(`/api/slot-signups/${signupId}`);
+    fetchSlots();
+  };
+
+  if (loading) return null;
+  if (slots.length === 0) {
+    return isAdmin ? (
+      <div className="mt-4 pt-4 border-t border-gray-100 text-center text-xs text-gray-400 py-2">
+        No sign-up slots — add them from Admin → Events
+      </div>
+    ) : null;
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-100">
+      <h4 className="font-bold text-gray-700 mb-3 text-sm">📋 Sign-Up Slots</h4>
+      <div className="space-y-2">
+        {slots.map(slot => {
+          const isFull = slot.capacity && slot.signupCount >= slot.capacity;
+          const isOpen = signupForm === slot.id;
+          return (
+            <div key={slot.id} className="bg-gray-50 rounded-xl p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold text-gray-800 text-sm">{slot.title}</span>
+                  {slot.capacity
+                    ? <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                        {isFull ? 'FULL' : `${slot.signupCount}/${slot.capacity}`}
+                      </span>
+                    : slot.signupCount > 0 && <span className="ml-2 text-xs text-gray-400">{slot.signupCount} signed up</span>
+                  }
+                </div>
+                {!isFull && !isOpen && (
+                  <button onClick={() => { setSignupForm(slot.id); setMsg(''); }}
+                    className="text-xs font-bold bg-blue-900 text-white px-3 py-1 rounded-full hover:bg-blue-700 whitespace-nowrap">
+                    Sign Up
+                  </button>
+                )}
+              </div>
+              {slot.description && <p className="text-xs text-gray-500 mt-1">{slot.description}</p>}
+              {slot.signups.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {slot.signups.map(su => (
+                    <div key={su.id} className="flex items-center justify-between bg-white rounded-lg px-2 py-1 text-xs">
+                      <span className="font-medium text-gray-700">{su.name}</span>
+                      <div className="flex items-center gap-2 text-gray-400">
+                        {su.phone && <span>{su.phone}</span>}
+                        {isAdmin && <button onClick={() => handleRemove(su.id)} className="text-red-400 hover:text-red-600">✕</button>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {isOpen && (
+                <div className="mt-2 p-3 bg-white rounded-xl border border-blue-100 space-y-2">
+                  <input value={form.name} onChange={e => setForm(p => ({...p, name: e.target.value}))}
+                    placeholder="Your name *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                  <input value={form.email} onChange={e => setForm(p => ({...p, email: e.target.value}))}
+                    placeholder="Email (optional)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                  <input value={form.phone} onChange={e => setForm(p => ({...p, phone: e.target.value}))}
+                    placeholder="Phone (optional)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                  {msg && <p className="text-red-500 text-xs">{msg}</p>}
+                  <div className="flex gap-2">
+                    <button onClick={() => handleSignup(slot.id)} disabled={submitting}
+                      className="flex-1 bg-blue-900 text-white text-sm font-bold py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                      {submitting ? 'Signing up…' : 'Confirm Sign-Up'}
+                    </button>
+                    <button onClick={() => { setSignupForm(null); setMsg(''); }}
+                      className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1202,6 +1311,7 @@ function AdminEventsTab({ events, setEvents }) {
   const [modal, setModal] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [detailModal, setDetailModal] = useState(null);
+  const [slotsModal, setSlotsModal] = useState(null); // event object for slot management
   const today = new Date().toISOString().split('T')[0];
 
   const upcoming = events.filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date));
@@ -1245,7 +1355,8 @@ function AdminEventsTab({ events, setEvents }) {
         </button>
       </td>
       <td className="px-4 py-3">
-        <div className="flex gap-2 justify-end">
+        <div className="flex gap-2 justify-end flex-wrap">
+          <Btn size="sm" variant="secondary" onClick={() => setSlotsModal(ev)}>Slots</Btn>
           <Btn size="sm" variant="secondary" onClick={() => setModal(ev)}>Edit</Btn>
           <Btn size="sm" variant="danger" onClick={() => setConfirmDel(ev)}>Delete</Btn>
         </div>
@@ -1286,6 +1397,7 @@ function AdminEventsTab({ events, setEvents }) {
         <EventTable title={`Past Events (${past.length})`} evList={past} />
       </div>
 
+      {slotsModal && <SlotManageModal event={slotsModal} onClose={() => setSlotsModal(null)} />}
       {modal && <EventModal event={modal === 'add' ? null : modal} onSave={handleSave} onClose={() => setModal(null)} />}
 
       {confirmDel && (
@@ -1322,6 +1434,136 @@ function AdminEventsTab({ events, setEvents }) {
         </Modal>
       )}
     </div>
+  );
+}
+
+function SlotManageModal({ event, onClose }) {
+  const [slots, setSlots] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [addForm, setAddForm] = useState(null); // null = hidden, {} = open
+  const [editSlot, setEditSlot] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const fetchSlots = useCallback(async () => {
+    const data = await api.get(`/api/events/${event.id}/slots`);
+    if (!data.error) setSlots(data);
+    setLoading(false);
+  }, [event.id]);
+
+  useEffect(() => { fetchSlots(); }, [fetchSlots]);
+
+  const handleAdd = async () => {
+    if (!addForm?.title?.trim()) return;
+    setSaving(true);
+    const res = await api.post(`/api/events/${event.id}/slots`, {
+      title: addForm.title, description: addForm.description || '',
+      capacity: addForm.capacity ? parseInt(addForm.capacity) : null
+    });
+    setSaving(false);
+    if (!res.error) { setAddForm(null); fetchSlots(); }
+  };
+
+  const handleEdit = async () => {
+    if (!editSlot?.title?.trim()) return;
+    setSaving(true);
+    await api.put(`/api/slots/${editSlot.id}`, {
+      title: editSlot.title, description: editSlot.description || '',
+      capacity: editSlot.capacity ? parseInt(editSlot.capacity) : null
+    });
+    setSaving(false);
+    setEditSlot(null); fetchSlots();
+  };
+
+  const handleDeleteSlot = async (slotId) => {
+    if (!confirm('Delete this slot and all its sign-ups?')) return;
+    await api.del(`/api/slots/${slotId}`);
+    fetchSlots();
+  };
+
+  const handleRemoveSignup = async (signupId) => {
+    await api.del(`/api/slot-signups/${signupId}`);
+    fetchSlots();
+  };
+
+  const SlotForm = ({ data, setData, onSave, onCancel, label }) => (
+    <div className="bg-blue-50 rounded-xl p-4 space-y-3 border border-blue-100">
+      <input value={data.title || ''} onChange={e => setData(p => ({...p, title: e.target.value}))}
+        placeholder="Slot title * (e.g. Bring cookies for 20)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+      <input value={data.description || ''} onChange={e => setData(p => ({...p, description: e.target.value}))}
+        placeholder="Description (optional)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+      <input value={data.capacity || ''} onChange={e => setData(p => ({...p, capacity: e.target.value}))}
+        placeholder="Max spots (leave blank for unlimited)" type="number" min="1"
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+      <div className="flex gap-2">
+        <Btn size="sm" variant="gold" onClick={onSave} disabled={saving}>{saving ? 'Saving…' : label}</Btn>
+        <Btn size="sm" variant="secondary" onClick={onCancel}>Cancel</Btn>
+      </div>
+    </div>
+  );
+
+  return (
+    <Modal title={`Sign-Up Slots: ${event.title}`} onClose={onClose} wide>
+      <p className="text-sm text-gray-500 mb-4">{event.date}{event.time ? ' at ' + event.time : ''}{event.location ? ' · ' + event.location : ''}</p>
+
+      {!addForm && (
+        <div className="flex justify-end mb-4">
+          <Btn size="sm" variant="gold" onClick={() => setAddForm({ title:'', description:'', capacity:'' })}>+ Add Slot</Btn>
+        </div>
+      )}
+      {addForm && <div className="mb-4"><SlotForm data={addForm} setData={setAddForm} onSave={handleAdd} onCancel={() => setAddForm(null)} label="Add Slot" /></div>}
+
+      {loading && <p className="text-center text-gray-400 py-8">Loading…</p>}
+      {!loading && slots.length === 0 && !addForm && (
+        <p className="text-center text-gray-400 py-8">No slots yet. Click "Add Slot" to create sign-up options for this event.</p>
+      )}
+
+      <div className="space-y-4">
+        {slots.map(slot => (
+          <div key={slot.id} className="bg-gray-50 rounded-xl overflow-hidden border border-gray-100">
+            {editSlot?.id === slot.id ? (
+              <div className="p-3">
+                <SlotForm data={editSlot} setData={setEditSlot} onSave={handleEdit} onCancel={() => setEditSlot(null)} label="Save Changes" />
+              </div>
+            ) : (
+              <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
+                <div>
+                  <span className="font-semibold text-gray-800">{slot.title}</span>
+                  {slot.capacity
+                    ? <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${slot.signupCount >= slot.capacity ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                        {slot.signupCount}/{slot.capacity} spots
+                      </span>
+                    : <span className="ml-2 text-xs text-gray-400">{slot.signupCount} signed up · unlimited</span>
+                  }
+                  {slot.description && <p className="text-xs text-gray-400 mt-0.5">{slot.description}</p>}
+                </div>
+                <div className="flex gap-2 ml-2">
+                  <Btn size="sm" variant="secondary" onClick={() => setEditSlot({...slot})}>Edit</Btn>
+                  <Btn size="sm" variant="danger" onClick={() => handleDeleteSlot(slot.id)}>Delete</Btn>
+                </div>
+              </div>
+            )}
+            <div className="divide-y divide-gray-50">
+              {slot.signups.map(su => (
+                <div key={su.id} className="flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-50">
+                  <div>
+                    <span className="font-medium text-gray-800">{su.name}</span>
+                    {su.email && <span className="text-gray-400 ml-2 text-xs">{su.email}</span>}
+                    {su.phone && <span className="text-gray-400 ml-2 text-xs">{su.phone}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <span>{String(su.signupDate || '').split('T')[0]}</span>
+                    <button onClick={() => handleRemoveSignup(su.id)} className="text-red-400 hover:text-red-600 font-bold">✕</button>
+                  </div>
+                </div>
+              ))}
+              {slot.signups.length === 0 && (
+                <p className="text-xs text-gray-400 text-center py-3">No sign-ups yet</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Modal>
   );
 }
 
@@ -1432,6 +1674,12 @@ function AdminSettingsTab() {
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [msg, setMsg] = useState('');
+  const [emailSettings, setEmailSettings] = useState({ notification_email:'', smtp_user:'', smtp_pass:'', smtp_pass_set: false });
+  const [emailMsg, setEmailMsg] = useState('');
+
+  useEffect(() => {
+    api.get('/api/settings/notifications').then(d => { if (!d.error) setEmailSettings(d); });
+  }, []);
 
   const changePassword = async () => {
     if (newPass !== confirmPass) { setMsg('❌ Passwords do not match'); return; }
@@ -1441,8 +1689,15 @@ function AdminSettingsTab() {
     else setMsg(`❌ ${res.error}`);
   };
 
+  const saveEmailSettings = async () => {
+    const res = await api.put('/api/settings/notifications', emailSettings);
+    if (res.success) setEmailMsg('✅ Saved!');
+    else setEmailMsg('❌ Error saving settings');
+    setTimeout(() => setEmailMsg(''), 3000);
+  };
+
   return (
-    <div className="max-w-md">
+    <div className="max-w-lg space-y-6">
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
         <h3 className="font-bold text-gray-800 text-lg mb-4">🔑 Change Admin Password</h3>
         <div className="space-y-3">
@@ -1450,6 +1705,33 @@ function AdminSettingsTab() {
           <Input label="Confirm New Password" type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} placeholder="Repeat password" />
           {msg && <div className={`text-sm px-3 py-2 rounded-lg ${msg.includes('✅') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>{msg}</div>}
           <Btn onClick={changePassword} variant="primary">Update Password</Btn>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <h3 className="font-bold text-gray-800 text-lg mb-1">📧 Sign-Up Notifications</h3>
+        <p className="text-sm text-gray-500 mb-4">Get an email whenever someone signs up for a slot. Requires a Gmail account with an App Password.</p>
+        <div className="space-y-3">
+          <Input label="Pack Leader Email (receive notifications here)"
+            value={emailSettings.notification_email}
+            onChange={e => setEmailSettings(p => ({...p, notification_email: e.target.value}))}
+            placeholder="leader@gmail.com" />
+          <Input label="Gmail Address (send from this address)"
+            value={emailSettings.smtp_user}
+            onChange={e => setEmailSettings(p => ({...p, smtp_user: e.target.value}))}
+            placeholder="yourpack@gmail.com" />
+          <div>
+            <Input label={emailSettings.smtp_pass_set ? "Gmail App Password (leave blank to keep existing)" : "Gmail App Password"}
+              type="password"
+              value={emailSettings.smtp_pass || ''}
+              onChange={e => setEmailSettings(p => ({...p, smtp_pass: e.target.value}))}
+              placeholder={emailSettings.smtp_pass_set ? "••••••••••••••••" : "16-character app password"} />
+            <p className="text-xs text-gray-400 mt-1">
+              Create an App Password at <a href="https://myaccount.google.com/apppasswords" target="_blank" className="text-blue-500 underline">myaccount.google.com/apppasswords</a> (requires 2-Step Verification).
+            </p>
+          </div>
+          {emailMsg && <div className={`text-sm px-3 py-2 rounded-lg ${emailMsg.includes('✅') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>{emailMsg}</div>}
+          <Btn onClick={saveEmailSettings} variant="primary">Save Email Settings</Btn>
         </div>
       </div>
     </div>
