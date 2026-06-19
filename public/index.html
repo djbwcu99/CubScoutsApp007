@@ -535,6 +535,36 @@ function AwardRow({ award, isAdmin, onAwardUpdated }) {
   );
 }
 
+function LoadAllReqsButton({ scoutId, onDone }) {
+  const [status, setStatus] = useState('idle'); // idle | loading | done
+  const [result, setResult] = useState(null);
+
+  const handleClick = async () => {
+    setStatus('loading');
+    const r = await api.post(`/api/scouts/${scoutId}/requirements/load-all-defaults`, {});
+    setStatus('done');
+    setResult(r);
+    if (onDone) onDone();
+    setTimeout(() => { setStatus('idle'); setResult(null); }, 4000);
+  };
+
+  if (status === 'done' && result) {
+    return (
+      <span className="text-sm bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg font-medium">
+        ✅ Loaded {result.loaded?.length || 0} awards
+        {result.skipped?.length > 0 ? `, ${result.skipped.length} already had requirements` : ''}
+      </span>
+    );
+  }
+
+  return (
+    <button onClick={handleClick} disabled={status === 'loading'}
+      className="text-sm bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 px-3 py-1.5 rounded-lg font-semibold transition-colors disabled:opacity-50">
+      {status === 'loading' ? '⏳ Loading…' : '⭐ Load All BSA Requirements'}
+    </button>
+  );
+}
+
 function ScoutPage({ scoutId, setPage, isAdmin }) {
   const [scout, setScout] = useState(null);
   const [awards, setAwards] = useState([]);
@@ -576,9 +606,14 @@ function ScoutPage({ scoutId, setPage, isAdmin }) {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 fade-in">
-      <button onClick={() => setPage('home')} className="mb-6 text-blue-700 hover:text-blue-900 flex items-center gap-1 text-sm font-semibold">
-        ← Back to Roster
-      </button>
+      <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
+        <button onClick={() => setPage('home')} className="text-blue-700 hover:text-blue-900 flex items-center gap-1 text-sm font-semibold">
+          ← Back to Roster
+        </button>
+        {isAdmin && (
+          <LoadAllReqsButton scoutId={scoutId} onDone={load} />
+        )}
+      </div>
 
       {/* Scout Header */}
       <div className="bg-white rounded-2xl shadow-sm border overflow-hidden mb-6" style={{borderColor:info.border}}>
@@ -1506,8 +1541,9 @@ function AdminAwardsTab({ scouts }) {
                 <h3 className="font-bold text-gray-800 text-lg">{selectedScout.firstName} {selectedScout.lastName}</h3>
                 <RankBadge rank={selectedScout.rank} />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Btn size="sm" variant="secondary" onClick={loadDefaults} title="Load BSA default awards for this rank">Load Defaults</Btn>
+                <LoadAllReqsButton scoutId={selectedScout.id} onDone={() => {}} />
                 <Btn size="sm" variant="gold" onClick={() => setModal('add')}>+ Add Award</Btn>
               </div>
             </div>

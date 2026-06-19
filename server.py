@@ -1213,6 +1213,27 @@ def load_default_requirements(award_id):
     rows = db.fetchall("SELECT * FROM award_requirements WHERE awardId=? ORDER BY sortOrder", (award_id,))
     return jsonify(rows)
 
+@app.route('/api/scouts/<int:scout_id>/requirements/load-all-defaults', methods=['POST'])
+@require_admin
+def load_all_default_requirements(scout_id):
+    awards = db.fetchall("SELECT * FROM awards WHERE scoutId=?", (scout_id,))
+    loaded, skipped, no_match = [], [], []
+    for award in awards:
+        reqs = DEFAULT_REQUIREMENTS.get(award['name'], [])
+        if not reqs:
+            no_match.append(award['name'])
+            continue
+        existing = db.scalar("SELECT COUNT(*) FROM award_requirements WHERE awardId=?", (award['id'],))
+        if existing > 0:
+            skipped.append(award['name'])
+            continue
+        for i, text in enumerate(reqs):
+            db.execute("INSERT INTO award_requirements (awardId, text, completed, sortOrder) VALUES (?,?,0,?)",
+                       (award['id'], text, i))
+        loaded.append(award['name'])
+    return jsonify({'loaded': loaded, 'skipped': skipped, 'no_match': no_match,
+                    'summary': f"Loaded {len(loaded)} awards, skipped {len(skipped)} already populated, {len(no_match)} had no BSA defaults."})
+
 @app.route('/api/requirements/<int:req_id>', methods=['DELETE'])
 @require_admin
 def delete_requirement(req_id):
