@@ -366,6 +366,16 @@ def init_db():
             ('cubmaster', 'Cubmaster', pw_hash, 'pack_admin', None)
         )
 
+    # Emergency password reset via environment variable
+    # Set RESET_ADMIN_PASSWORD=yournewpassword in Render env vars, redeploy, log in, then remove it.
+    reset_pw = os.environ.get('RESET_ADMIN_PASSWORD', '').strip()
+    if reset_pw:
+        if len(reset_pw) >= 6:
+            db.execute("UPDATE users SET passwordHash=? WHERE username='cubmaster'", (hash_password(reset_pw),))
+            print(f"🔑 cubmaster password has been reset via RESET_ADMIN_PASSWORD env var.")
+        else:
+            print("⚠️  RESET_ADMIN_PASSWORD is set but too short (must be 6+ characters). Skipped.")
+
     # Seed sample data if the scouts table is empty
     count = db.scalar("SELECT COUNT(*) FROM scouts")
     if count == 0:
