@@ -459,10 +459,17 @@ function AwardRow({ award, isAdmin, onAwardUpdated }) {
                     className="text-sm text-gray-400 hover:text-gray-600 px-2">Cancel</button>
                 </div>
               ) : (
-                <button onClick={() => setAddingReq(true)}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1">
-                  + Add Requirement
-                </button>
+                <div className="flex gap-3 flex-wrap">
+                  <button onClick={() => setAddingReq(true)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold">+ Add Requirement</button>
+                  {reqs !== null && reqs.length === 0 && (
+                    <button onClick={async () => {
+                      const r = await api.post(`/api/awards/${award.id}/requirements/load-defaults`, {});
+                      if (Array.isArray(r)) { setReqs(r); if (onAwardUpdated) onAwardUpdated(); }
+                      else alert(r.error || 'No BSA defaults found for this award.');
+                    }} className="text-xs text-amber-600 hover:text-amber-800 font-semibold">⭐ Load BSA Requirements</button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -1327,8 +1334,17 @@ function AdminAwardRow({ award, onEdit, onDelete, onUpdated }) {
                   className="text-sm text-gray-400 hover:text-gray-600 px-2">Cancel</button>
               </div>
             ) : (
-              <button onClick={() => setAddingReq(true)}
-                className="text-xs text-blue-600 hover:text-blue-800 font-semibold">+ Add Requirement</button>
+              <div className="flex gap-3 flex-wrap">
+                <button onClick={() => setAddingReq(true)}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold">+ Add Requirement</button>
+                {reqs !== null && reqs.length === 0 && (
+                  <button onClick={async () => {
+                    const r = await api.post(`/api/awards/${award.id}/requirements/load-defaults`, {});
+                    if (Array.isArray(r)) { setReqs(r); if (onUpdated) onUpdated(); }
+                    else alert(r.error || 'No BSA defaults found for this award.');
+                  }} className="text-xs text-amber-600 hover:text-amber-800 font-semibold">⭐ Load BSA Requirements</button>
+                )}
+              </div>
             )}
           </div>
         </div>

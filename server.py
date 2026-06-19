@@ -491,6 +491,361 @@ DEFAULT_AWARDS = {
     ],
 }
 
+# ─── Default BSA Requirements ────────────────────────────────
+DEFAULT_REQUIREMENTS = {
+    # ── Lion ──────────────────────────────────────────────────
+    'Lion Badge': [
+        'Complete the Animal Kingdom Adventure with your den or family.',
+        'Complete one elective adventure.',
+        'With your parent/guardian, review the "How to Protect Your Children from Child Abuse" material.',
+        'Participate in a pack meeting.',
+        'Participate in a pack service project.',
+    ],
+    'Animal Kingdom Adventure': [
+        'Watch a video or read a book about an animal.',
+        'Go on a nature walk with your den or family and look for animals or signs of animals.',
+        'Draw a picture of a simple food chain.',
+        'Learn the difference between a mammal, a bird, a reptile, an amphibian, a fish, and an insect.',
+    ],
+    'Big Cats': [
+        'Learn about two types of big cats and their habitats.',
+        'Act out how a big cat moves and hunts.',
+        'Draw or color a picture of a big cat.',
+    ],
+    'Gizmos and Gadgets': [
+        'With adult supervision, take apart a simple household object to see how it works.',
+        'Build a simple machine or toy using household materials.',
+        'Show your creation to your den or family.',
+    ],
+    'Let It Grow': [
+        'Plant a seed or seedling and care for it.',
+        'Learn about the parts of a plant.',
+        'Visit a garden, farm, or nature area and observe growing plants.',
+    ],
+    'Make It Move': [
+        'Learn about simple machines (lever, wheel, pulley, inclined plane).',
+        'Build something that moves using simple materials.',
+        'Show your creation to your family or den.',
+    ],
+    'Rumble in the Jungle': [
+        'Learn about a rainforest and the animals that live there.',
+        'Play a game or do an activity about the rainforest food web.',
+        'Make an animal or plant found in the jungle.',
+    ],
+    # ── Tiger ─────────────────────────────────────────────────
+    'Tiger Badge': [
+        'Complete the Tiger Bites Adventure with your den or family.',
+        'Complete two elective adventures.',
+        'With your parent/guardian, review the "How to Protect Your Children from Child Abuse" material.',
+        'Participate in a pack meeting.',
+        'Participate in a pack service project.',
+    ],
+    'Tiger Bites': [
+        'Learn about MyPlate and the food groups.',
+        'Try a new healthy food.',
+        'With an adult, make a healthy snack and share it with your family or den.',
+        'Learn about food allergies and why they are important.',
+    ],
+    "Earn Your Stripes": [
+        'Make a list of three things that make you unique.',
+        'Interview a family member and share something you learned.',
+        'Make a craft that represents your family heritage.',
+    ],
+    "Movin' On": [
+        'Visit or learn about a form of transportation (car, boat, plane, train).',
+        'Build or draw your favorite type of transportation.',
+        'Visit a transportation museum, airport, or train station.',
+    ],
+    "Sky is the Limit": [
+        'Learn about the Wright Brothers and early aviation.',
+        'Make a paper airplane and fly it.',
+        'Find out about a job that involves flying or working in space.',
+    ],
+    "Tiger-iffic": [
+        'Identify three animals that could be found in your area.',
+        'Make a poster or drawing showing a local habitat.',
+        'Learn how to be safe around wild animals.',
+    ],
+    "Tigers in the Wild": [
+        'Learn what it means to Leave No Trace.',
+        'Go on an outdoor hike or walk.',
+        'Identify five plants or animals you observe outdoors.',
+        'Learn how to stay safe in the outdoors.',
+    ],
+    "Built by Baden-Powell": [
+        'Learn who Robert Baden-Powell was.',
+        'Find out why Scouting was started.',
+        'Share one Scouting value and how it applies to your life.',
+    ],
+    # ── Wolf ──────────────────────────────────────────────────
+    'Wolf Badge': [
+        'Complete all five required adventures: Call of the Wild, Duty to God Footsteps, Howling at the Moon, Paws on the Path, Running with the Pack.',
+        'Complete one elective adventure.',
+        'With your parent/guardian, review the "How to Protect Your Children from Child Abuse" material.',
+        'Complete the Cyber Chip requirement for your grade.',
+    ],
+    'Call of the Wild': [
+        'Learn what the Leave No Trace Principles for Kids are and how to use them.',
+        'Go on a hike with your den or family.',
+        'Observe wildlife or signs of wildlife.',
+        'Help care for a plant or animal.',
+        'Learn about and practice two outdoor safety rules.',
+    ],
+    'Duty to God Footsteps': [
+        'Discuss with a family member how your family shows duty to God.',
+        'With your family, find out about the religious emblem program for your faith.',
+        'Attend a religious service or activity with your family.',
+        'Learn a prayer, song, or pledge used in your religious tradition.',
+    ],
+    'Howling at the Moon': [
+        'Make a "My Scouting Trail" booklet and fill in at least two past memories.',
+        'With an adult, look up one constellation.',
+        'Complete a stargazing activity at night.',
+        'Learn the phases of the moon.',
+    ],
+    'Paws on the Path': [
+        'Go on two hikes in your local area.',
+        'Identify five plants or animals you observe during a hike.',
+        'Learn about a threatened or endangered animal in your state.',
+        'Build and care for a simple nature project (birdhouse, butterfly garden, etc.).',
+    ],
+    'Running with the Pack': [
+        'Participate in a den service project.',
+        'With your den, identify a need in your school, community, or environment.',
+        'Write a thank-you note to someone who has helped your community.',
+    ],
+    'Adventures in Coins': [
+        'Learn what coin collecting is called (numismatics).',
+        'Start a coin collection of at least 10 different coins.',
+        'Learn about the designs on coins and what they represent.',
+    ],
+    'Air of the Wolf': [
+        'Learn how air pollution affects the environment and living things.',
+        'Make a model or demonstration showing how air supports flight.',
+        'With your den, do an experiment with air pressure.',
+    ],
+    'Code of the Wolf': [
+        'Learn what a secret code is and how it works.',
+        'Create your own secret code and send a message to a friend.',
+        'Decode a message using a provided cipher.',
+    ],
+    'Finding Your Way': [
+        'Learn to use a compass and find north.',
+        'Draw a simple map of your home or school.',
+        'Use a map to navigate from one place to another.',
+    ],
+    'Paws of Skill': [
+        'Learn about the athletic disciplines in the Olympic Games or Paralympic Games.',
+        'Participate in a sport or physical fitness activity.',
+        'Practice a sport skill and demonstrate improvement.',
+    ],
+    'Spirit of the Water': [
+        'Discuss water safety rules with your family.',
+        'Learn and demonstrate the back float.',
+        'Learn about water conservation and why clean water is important.',
+        'Participate in a water-related activity.',
+    ],
+    # ── Bear ──────────────────────────────────────────────────
+    'Bear Badge': [
+        'Complete all four required adventures: Bear Claws, Bear Necessities, Fellowship and Duty to God, Fur Feathers and Ferns.',
+        'Complete one elective adventure.',
+        'With your parent/guardian, review the "How to Protect Your Children from Child Abuse" material.',
+        'Complete the Cyber Chip requirement for your grade.',
+    ],
+    'Bear Claws': [
+        'Learn about tools and tool safety.',
+        'Identify and demonstrate proper use of three tools.',
+        'With adult supervision, use a hammer and nails to build or repair something.',
+    ],
+    'Bear Necessities': [
+        'Learn the Leave No Trace Principles for Kids.',
+        'Participate in an outdoor activity such as a hike or campout.',
+        'Learn about and practice camp cooking or a fire safety activity.',
+        'Learn to read a simple trail map.',
+    ],
+    'Fellowship and Duty to God': [
+        'Discuss how family and community contribute to your sense of belonging.',
+        'With your family, discuss what "duty to God" means to you.',
+        'Find out about the religious emblem program for your faith.',
+        'Participate in an activity related to your religious tradition.',
+    ],
+    'Fur, Feathers, and Ferns': [
+        'Identify six animals that live in your area.',
+        'Identify six plants that grow in your area.',
+        'Learn about one plant and one animal that are threatened or endangered in your region.',
+        'Go on a nature walk and record your observations in a journal.',
+    ],
+    'Baloo the Builder': [
+        'Learn about the proper and safe use of basic hand tools.',
+        'Help plan and build a birdhouse or other simple project with adult supervision.',
+        'Learn about different types of materials used in construction.',
+    ],
+    'Beat of the Drum': [
+        'Learn about music and how different instruments work.',
+        'Make a simple musical instrument and play a simple song or beat.',
+        'Attend a musical performance or listen to music from a different culture.',
+    ],
+    'A Bear Goes Fishing': [
+        'Learn about fishing safety and regulations.',
+        'Learn how to properly bait a hook and cast a line.',
+        'Go fishing and record what you catch or observe.',
+        'Learn about the aquatic ecosystem in a local body of water.',
+    ],
+    'Forensics': [
+        'Learn what forensic science is and how it is used.',
+        'Lift a fingerprint using powder and tape.',
+        'Learn about at least two other types of forensic evidence.',
+        'Role-play a simple forensic investigation scenario.',
+    ],
+    'Grin and Bear It': [
+        'Learn about the history and traditions of Cub Scouting.',
+        'Interview a past or present Scout leader.',
+        'Make a scrapbook page or poster about the history of Scouting.',
+    ],
+    'Super Science': [
+        'Identify the steps of the scientific method.',
+        'Conduct two simple science experiments.',
+        'Share your results with your family or den.',
+    ],
+    'Robotics': [
+        'Learn about robots and how they are used in everyday life.',
+        'Build a simple robot or programmable device.',
+        'Program or control a robot to complete a simple task.',
+    ],
+    # ── Webelos ───────────────────────────────────────────────
+    'Webelos Badge': [
+        'Complete Duty to God and You Adventure.',
+        'Complete First Responder Adventure.',
+        'Complete Stronger, Faster, Higher Adventure.',
+        'Complete Into the Wild Adventure.',
+        'Complete Into the Woods Adventure.',
+        'Complete two elective adventures.',
+        'With your parent/guardian, review the "How to Protect Your Children from Child Abuse" material.',
+        'Complete the Cyber Chip requirement for your grade.',
+    ],
+    'Duty to God and You': [
+        'Discuss with your family what duty to God means in your family.',
+        'Find out about the religious emblem program for your faith and work toward earning it.',
+        'Make a duty to God goal and track it over 30 days.',
+        'Share what you believe and how your beliefs guide your actions.',
+    ],
+    'First Responder': [
+        'Demonstrate first aid for minor cuts, scrapes, burns, and insect bites.',
+        'Demonstrate how to recognize and treat shock.',
+        'Demonstrate how to call for emergency help (911).',
+        'Demonstrate how to help someone who is choking (Heimlich Maneuver).',
+        'Learn about CPR/AED and when it is used.',
+    ],
+    'Stronger, Faster, Higher': [
+        'Complete the Participate in a sport or outdoor activity.',
+        'Establish a baseline and set a personal fitness goal.',
+        'Work toward your fitness goal for 30 days and record your progress.',
+        'Share what you learned about personal fitness with your family.',
+    ],
+    'Into the Wild': [
+        'Identify six native plants and six native animals in your local area.',
+        'Explain the importance of predators in nature.',
+        'Learn about one threatened or endangered species in your state.',
+        'Keep a nature journal for 30 days.',
+    ],
+    'Into the Woods': [
+        'Identify six common trees and their uses.',
+        'Explain how forests benefit the environment.',
+        'Participate in a forestry conservation activity.',
+        'Learn about the dangers of invasive species.',
+    ],
+    'Earth Rocks': [
+        'Identify six types of rocks or minerals.',
+        'Explain the rock cycle.',
+        'Collect rock or mineral samples and create a display.',
+    ],
+    'Engineer': [
+        'Learn about the engineering design process.',
+        'Design and build a structure that can hold a specific weight.',
+        'Test your design and modify it to improve performance.',
+    ],
+    'Fix It': [
+        'Learn about basic home maintenance.',
+        'With an adult, make a simple repair in your home.',
+        'Learn how to safely use at least three types of tools.',
+    ],
+    'Game Design': [
+        'Play a board or card game and analyze what makes it fun.',
+        'Design your own game with rules, objectives, and materials.',
+        'Play your game with your family or den and improve it based on feedback.',
+    ],
+    "Maestro!": [
+        'Learn about a musical instrument you have never played.',
+        'Attend a live musical performance.',
+        'Learn and perform a simple piece of music.',
+    ],
+    'Webelos Walkabout': [
+        'Plan and go on a hike of at least 3 miles.',
+        'Navigate using a map and compass.',
+        'Practice Leave No Trace principles on the hike.',
+        'Prepare and eat a snack or meal outdoors.',
+    ],
+    'Build My Own Hero': [
+        'Identify someone in your community who you consider a hero and explain why.',
+        'Create a project that tells that person\'s story.',
+        'Share your project with your den or family.',
+    ],
+    # ── Arrow of Light ────────────────────────────────────────
+    'Arrow of Light Badge': [
+        'Complete Building a Better World Adventure.',
+        'Complete Duty to God and Country Adventure.',
+        'Complete Scouting Adventure.',
+        'Complete two elective adventures.',
+        'With your parent/guardian, review the "How to Protect Your Children from Child Abuse" material.',
+        'Complete the Cyber Chip requirement for your grade.',
+    ],
+    'Building a Better World': [
+        'Identify a problem in your community that you want to help solve.',
+        'Plan and carry out a service project to address the problem.',
+        'Write a report or presentation about what you did and what you learned.',
+    ],
+    'Duty to God and Country': [
+        'Explain what "duty to country" means to you.',
+        'Learn about the flag and proper flag etiquette.',
+        'Participate in a patriotic community event.',
+        'Find out about the religious emblem program for your faith.',
+    ],
+    'Scouting Adventure': [
+        'Visit a Boy Scout troop and participate in a meeting.',
+        'Learn about the Scout Oath and Scout Law.',
+        'Talk with a Scout or leader about what to expect in Boy Scouts.',
+        'Demonstrate one Scout skill (knot tying, first aid, navigation, etc.).',
+    ],
+    'Camper': [
+        'Attend a resident camp or go on a campout.',
+        'Help set up a tent and sleeping area.',
+        'Prepare a meal outdoors.',
+        'Practice Leave No Trace principles at camp.',
+    ],
+    'Cyclist': [
+        'Learn about bicycle safety and proper equipment.',
+        'Go on a bike ride of at least 5 miles.',
+        'Perform a basic bicycle inspection before your ride.',
+    ],
+    'First Aid': [
+        'Demonstrate first aid for 10 situations (cuts, burns, blisters, sprains, etc.).',
+        'Explain when and how to call 911.',
+        'Demonstrate how to treat someone who is choking.',
+        'Prepare a basic first aid kit.',
+    ],
+    'Fishing': [
+        'Know and follow the fishing regulations in your state.',
+        'Go fishing and catch or attempt to catch a fish.',
+        'Learn about the aquatic habitat where you are fishing.',
+        'Practice catch and release properly.',
+    ],
+    'Outdoor Adventurer': [
+        'Identify and demonstrate five outdoor skills (fire building, shelter, navigation, etc.).',
+        'Plan and go on a day hike or overnight campout.',
+        'Practice the Leave No Trace principles.',
+    ],
+}
+
 # ─── Auth Helpers ────────────────────────────────────────────
 def require_admin(f):
     @wraps(f)
@@ -689,6 +1044,25 @@ def update_requirement(req_id):
         db.execute("UPDATE awards SET progress=?, status=? WHERE id=?", (progress, status, award_id))
     row = db.fetchone("SELECT * FROM award_requirements WHERE id=?", (req_id,))
     return jsonify(row)
+
+@app.route('/api/awards/<int:award_id>/requirements/load-defaults', methods=['POST'])
+@require_admin
+def load_default_requirements(award_id):
+    award = db.fetchone("SELECT * FROM awards WHERE id=?", (award_id,))
+    if not award:
+        return jsonify({'error': 'Award not found'}), 404
+    reqs = DEFAULT_REQUIREMENTS.get(award['name'], [])
+    if not reqs:
+        return jsonify({'error': f'No default requirements found for "{award["name"]}"'}), 404
+    # Only load if no requirements exist yet
+    existing = db.scalar("SELECT COUNT(*) FROM award_requirements WHERE awardId=?", (award_id,))
+    if existing > 0:
+        return jsonify({'error': 'Requirements already exist — clear them first to reload defaults'}), 409
+    for i, text in enumerate(reqs):
+        db.execute("INSERT INTO award_requirements (awardId, text, completed, sortOrder) VALUES (?,?,0,?)",
+                   (award_id, text, i))
+    rows = db.fetchall("SELECT * FROM award_requirements WHERE awardId=? ORDER BY sortOrder", (award_id,))
+    return jsonify(rows)
 
 @app.route('/api/requirements/<int:req_id>', methods=['DELETE'])
 @require_admin
