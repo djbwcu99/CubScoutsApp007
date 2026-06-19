@@ -130,23 +130,25 @@ class Database:
         finally:
             conn.close()
 
-    def execute(self, sql, params=()):
+    def execute(self, sql, params=(), returning_id=True):
         """
         Execute a statement.
-        For INSERT statements: returns the new row's integer id.
+        For INSERT statements: returns the new row's integer id (if returning_id=True).
         For UPDATE/DELETE: returns None.
+        Pass returning_id=False for tables that don't have an 'id' column (e.g. settings).
         """
         sql = self._adapt(sql)
         conn = self._conn()
         try:
             if self.is_pg:
                 is_insert = sql.strip().upper().startswith('INSERT')
-                if is_insert and 'RETURNING' not in sql.upper() and 'DO NOTHING' not in sql.upper():
+                want_returning = is_insert and returning_id and 'RETURNING' not in sql.upper() and 'DO NOTHING' not in sql.upper()
+                if want_returning:
                     sql += ' RETURNING id'
                 with conn.cursor(cursor_factory=self._DictCursor) as cur:
                     cur.execute(sql, params or None)
                     conn.commit()
-                    if is_insert and 'RETURNING' in sql.upper():
+                    if want_returning and 'RETURNING' in sql.upper():
                         row = cur.fetchone()
                         return row['id'] if row else None
                     return None
@@ -269,7 +271,7 @@ def init_db():
     # Set default admin password if not configured yet
     existing = db.fetchone("SELECT value FROM settings WHERE key='admin_password'")
     if not existing:
-        db.execute("INSERT INTO settings (key, value) VALUES (?, ?)", ('admin_password', hash_password('cubmaster123')))
+        db.execute("INSERT INTO settings (key, value) VALUES (?, ?)", ('admin_password', hash_password('cubmaster123')), returning_id=False)
 
     # Seed sample data if the scouts table is empty
     count = db.scalar("SELECT COUNT(*) FROM scouts")
