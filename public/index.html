@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
   <style>
     body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f4f8; }
     .progress-bar-inner { transition: width 0.6s ease; }
@@ -23,7 +23,7 @@
 <body>
 <div id="root"></div>
 
-<script type="text/babel">
+<script type="text/babel" data-presets="react">
 const { useState, useEffect, useCallback, useRef } = React;
 
 // ─── Constants ──────────────────────────────────────────────
@@ -50,10 +50,12 @@ const GRADES = ['Kindergarten','1st Grade','2nd Grade','3rd Grade','4th Grade','
 
 // ─── API Helper ─────────────────────────────────────────────
 const api = {
-  get: (url) => fetch(url).then(r => r.json()),
-  post: (url, body) => fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
-  put:  (url, body) => fetch(url, { method:'PUT',  headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
-  del:  (url, body) => fetch(url, { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
+  get:    (url)       => fetch(url).then(r => r.json()),
+  post:   (url, body) => fetch(url, { method:'POST',   headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
+  put:    (url, body) => fetch(url, { method:'PUT',    headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
+  patch:  (url, body) => fetch(url, { method:'PATCH',  headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
+  delete: (url)       => fetch(url, { method:'DELETE', headers:{'Content-Type':'application/json'} }).then(r => r.json()),
+  del:    (url, body) => fetch(url, { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) }).then(r => r.json()),
 };
 
 // ─── Shared Components ──────────────────────────────────────
@@ -304,6 +306,60 @@ function HomePage({ setPage, setSelectedScoutId }) {
   );
 }
 
+function ScoutAvatar({ scout, size = 'md', isAdmin = false, onPhotoChange }) {
+  const info = RANK_INFO[scout.rank] || {};
+  const dim = size === 'lg' ? 'w-20 h-20 text-5xl' : size === 'sm' ? 'w-9 h-9 text-xl' : 'w-12 h-12 text-2xl';
+  const fileRef = React.useRef();
+
+  const handleFile = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) { alert('Image must be under 3 MB'); return; }
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target.result;
+      const r = await api.put(`/api/scouts/${scout.id}/photo`, { photoData: dataUrl });
+      if (r.success && onPhotoChange) onPhotoChange(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removePhoto = async (e) => {
+    e.stopPropagation();
+    await api.delete(`/api/scouts/${scout.id}/photo`);
+    if (onPhotoChange) onPhotoChange(null);
+  };
+
+  return (
+    <div className={`relative flex-shrink-0 ${dim} group`}>
+      {scout.photoData
+        ? <img src={scout.photoData} alt={scout.firstName}
+            className={`${dim} rounded-full object-cover border-2`}
+            style={{borderColor: info.color}} />
+        : <div className={`${dim} rounded-full flex items-center justify-center`}
+            style={{background: info.bg}}>
+            <span>{info.emoji}</span>
+          </div>
+      }
+      {isAdmin && (
+        <>
+          <button onClick={() => fileRef.current.click()}
+            className="absolute inset-0 rounded-full bg-black bg-opacity-0 group-hover:bg-opacity-40 flex items-center justify-center transition-all"
+            title="Upload photo">
+            <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-bold">📷</span>
+          </button>
+          {scout.photoData && (
+            <button onClick={removePhoto}
+              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+              title="Remove photo">✕</button>
+          )}
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        </>
+      )}
+    </div>
+  );
+}
+
 function ScoutCard({ scout, onClick }) {
   const [awards, setAwards] = useState(null);
   const info = RANK_INFO[scout.rank] || {};
@@ -322,16 +378,18 @@ function ScoutCard({ scout, onClick }) {
       style={{borderColor: info.border}}>
       <div className="h-2" style={{background: info.color}}></div>
       <div className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <div>
-            <h3 className="font-bold text-gray-800 text-base leading-tight">{scout.firstName} {scout.lastName}</h3>
+        <div className="flex items-start gap-3 mb-2">
+          <ScoutAvatar scout={scout} size="md" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-1">
+              <h3 className="font-bold text-gray-800 text-base leading-tight">{scout.firstName} {scout.lastName}</h3>
+              <RankBadge rank={scout.rank} />
+            </div>
             <p className="text-xs text-gray-500 mt-0.5">{scout.den || 'No den assigned'}</p>
           </div>
-          <span className="text-2xl">{info.emoji}</span>
         </div>
-        <RankBadge rank={scout.rank} />
         {awards !== null && (
-          <div className="mt-3">
+          <div className="mt-2">
             <div className="flex justify-between text-xs text-gray-500 mb-1">
               <span>{completed}/{total} awards</span>
               <span>{overallPct}%</span>
@@ -348,6 +406,165 @@ function ScoutCard({ scout, onClick }) {
 }
 
 // ─── Scout Detail Page ───────────────────────────────────────
+function AwardRow({ award, isAdmin, onAwardUpdated }) {
+  const [open, setOpen] = useState(false);
+  const [reqs, setReqs] = useState(null); // null = not loaded yet
+  const [newReqText, setNewReqText] = useState('');
+  const [addingReq, setAddingReq] = useState(false);
+  const [localAward, setLocalAward] = useState(award);
+
+  useEffect(() => { setLocalAward(award); }, [award]);
+
+  const loadReqs = async () => {
+    const data = await api.get(`/api/awards/${award.id}/requirements`);
+    setReqs(Array.isArray(data) ? data : []);
+  };
+
+  const toggle = () => {
+    if (!open && reqs === null) loadReqs();
+    setOpen(o => !o);
+  };
+
+  const toggleReq = async (req) => {
+    const updated = await api.patch(`/api/requirements/${req.id}`, { completed: req.completed ? 0 : 1 });
+    if (!updated.error) {
+      setReqs(r => r.map(x => x.id === req.id ? updated : x));
+      // Refresh award progress from server
+      const fresh = await api.get(`/api/awards?scoutId=${award.scoutId}`);
+      if (Array.isArray(fresh)) {
+        const a = fresh.find(x => x.id === award.id);
+        if (a) setLocalAward(a);
+      }
+      if (onAwardUpdated) onAwardUpdated();
+    }
+  };
+
+  const addReq = async () => {
+    if (!newReqText.trim()) return;
+    const r = await api.post(`/api/awards/${award.id}/requirements`, { text: newReqText.trim() });
+    if (!r.error) { setReqs(prev => [...(prev||[]), r]); setNewReqText(''); setAddingReq(false); }
+  };
+
+  const deleteReq = async (req) => {
+    const r = await api.delete(`/api/requirements/${req.id}`);
+    if (r.success) { setReqs(prev => prev.filter(x => x.id !== req.id)); if (onAwardUpdated) onAwardUpdated(); }
+  };
+
+  const completedCount = reqs ? reqs.filter(r => r.completed).length : null;
+  const totalCount = reqs ? reqs.length : null;
+
+  return (
+    <div>
+      <div className="px-5 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none" onClick={toggle}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-gray-400 text-xs transition-transform" style={{display:'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)'}}>▶</span>
+              <span className="font-semibold text-gray-800 text-sm">{localAward.name}</span>
+              <StatusBadge status={localAward.status} />
+              {localAward.dateEarned && <span className="text-xs text-gray-400">📅 {localAward.dateEarned}</span>}
+              {reqs !== null && totalCount > 0 && (
+                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{completedCount}/{totalCount}</span>
+              )}
+            </div>
+            {localAward.status !== 'not_started' && (
+              <div className="mt-2 flex items-center gap-3 pl-4">
+                <div className="flex-1"><ProgressBar progress={localAward.progress} status={localAward.status} size="sm" /></div>
+                <span className="text-xs text-gray-500 w-8 text-right">{localAward.progress}%</span>
+              </div>
+            )}
+            {localAward.notes && <p className="text-xs text-gray-400 mt-1 italic pl-4">{localAward.notes}</p>}
+          </div>
+        </div>
+      </div>
+
+      {open && (
+        <div className="bg-gray-50 border-t border-gray-100 px-5 py-3">
+          {reqs === null && <p className="text-xs text-gray-400 py-2">Loading…</p>}
+          {reqs !== null && reqs.length === 0 && !isAdmin && (
+            <p className="text-xs text-gray-400 italic py-1">No requirements added yet.</p>
+          )}
+          {reqs !== null && (
+            <div className="space-y-2">
+              {reqs.map(req => (
+                <div key={req.id} className="flex items-start gap-2 group">
+                  <input type="checkbox" checked={!!req.completed}
+                    onChange={() => isAdmin && toggleReq(req)}
+                    disabled={!isAdmin}
+                    className="mt-0.5 w-4 h-4 rounded accent-emerald-600 cursor-pointer flex-shrink-0" />
+                  <span className={`text-sm flex-1 ${req.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>{req.text}</span>
+                  {isAdmin && (
+                    <button onClick={() => deleteReq(req)}
+                      className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs px-1 transition-opacity flex-shrink-0">✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isAdmin && (
+            <div className="mt-3 border-t border-gray-200 pt-3">
+              {addingReq ? (
+                <div className="flex gap-2">
+                  <input autoFocus value={newReqText} onChange={e => setNewReqText(e.target.value)}
+                    onKeyDown={e => { if (e.key==='Enter') addReq(); if (e.key==='Escape') setAddingReq(false); }}
+                    placeholder="Requirement text…"
+                    className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400" />
+                  <button onClick={addReq} className="text-sm bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700">Add</button>
+                  <button onClick={() => { setAddingReq(false); setNewReqText(''); }}
+                    className="text-sm text-gray-400 hover:text-gray-600 px-2">Cancel</button>
+                </div>
+              ) : (
+                <div className="flex gap-3 flex-wrap">
+                  <button onClick={() => setAddingReq(true)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold">+ Add Requirement</button>
+                  {reqs !== null && reqs.length === 0 && (
+                    <button onClick={async () => {
+                      const r = await api.post(`/api/awards/${award.id}/requirements/load-defaults`, {});
+                      if (Array.isArray(r)) { setReqs(r); if (onAwardUpdated) onAwardUpdated(); }
+                      else alert(r.error || 'No BSA defaults found for this award.');
+                    }} className="text-xs text-amber-600 hover:text-amber-800 font-semibold">⭐ Load BSA Requirements</button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LoadAllReqsButton({ scoutId, onDone }) {
+  const [status, setStatus] = useState('idle'); // idle | loading | done
+  const [result, setResult] = useState(null);
+
+  const handleClick = async () => {
+    setStatus('loading');
+    const r = await api.post(`/api/scouts/${scoutId}/requirements/load-all-defaults`, {});
+    setStatus('done');
+    setResult(r);
+    if (onDone) onDone();
+    setTimeout(() => { setStatus('idle'); setResult(null); }, 4000);
+  };
+
+  if (status === 'done' && result) {
+    return (
+      <span className="text-sm bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg font-medium">
+        ✅ Loaded {result.loaded?.length || 0} awards
+        {result.skipped?.length > 0 ? `, ${result.skipped.length} already had requirements` : ''}
+      </span>
+    );
+  }
+
+  return (
+    <button onClick={handleClick} disabled={status === 'loading'}
+      className="text-sm bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 px-3 py-1.5 rounded-lg font-semibold transition-colors disabled:opacity-50">
+      {status === 'loading' ? '⏳ Loading…' : '⭐ Load All BSA Requirements'}
+    </button>
+  );
+}
+
 function ScoutPage({ scoutId, setPage, isAdmin }) {
   const [scout, setScout] = useState(null);
   const [awards, setAwards] = useState([]);
@@ -389,19 +606,22 @@ function ScoutPage({ scoutId, setPage, isAdmin }) {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 fade-in">
-      <button onClick={() => setPage('home')} className="mb-6 text-blue-700 hover:text-blue-900 flex items-center gap-1 text-sm font-semibold">
-        ← Back to Roster
-      </button>
+      <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
+        <button onClick={() => setPage('home')} className="text-blue-700 hover:text-blue-900 flex items-center gap-1 text-sm font-semibold">
+          ← Back to Roster
+        </button>
+        {isAdmin && (
+          <LoadAllReqsButton scoutId={scoutId} onDone={load} />
+        )}
+      </div>
 
       {/* Scout Header */}
       <div className="bg-white rounded-2xl shadow-sm border overflow-hidden mb-6" style={{borderColor:info.border}}>
         <div className="h-3" style={{background:info.color}}></div>
         <div className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-            <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-5xl flex-shrink-0"
-              style={{background:info.bg}}>
-              {info.emoji}
-            </div>
+            <ScoutAvatar scout={scout} size="lg" isAdmin={isAdmin}
+              onPhotoChange={(url) => setScout(s => ({...s, photoData: url}))} />
             <div className="flex-1">
               <h1 className="text-3xl font-black text-gray-800">{scout.firstName} {scout.lastName}</h1>
               <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -457,24 +677,7 @@ function ScoutPage({ scoutId, setPage, isAdmin }) {
               </div>
               <div className="divide-y divide-gray-50">
                 {typeAwards.map(award => (
-                  <div key={award.id} className="px-5 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-gray-800 text-sm truncate">{award.name}</span>
-                          <StatusBadge status={award.status} />
-                          {award.dateEarned && <span className="text-xs text-gray-400">📅 {award.dateEarned}</span>}
-                        </div>
-                        {award.status !== 'not_started' && (
-                          <div className="mt-2 flex items-center gap-3">
-                            <div className="flex-1"><ProgressBar progress={award.progress} status={award.status} size="sm" /></div>
-                            <span className="text-xs text-gray-500 w-8 text-right">{award.progress}%</span>
-                          </div>
-                        )}
-                        {award.notes && <p className="text-xs text-gray-400 mt-1 italic">{award.notes}</p>}
-                      </div>
-                    </div>
-                  </div>
+                  <AwardRow key={award.id} award={award} isAdmin={isAdmin} onAwardUpdated={load} />
                 ))}
               </div>
             </div>
@@ -724,6 +927,115 @@ function EventDetail({ event, scouts, onSignup, onRemove, isAdmin, onClose }) {
             <p className="text-gray-400 text-sm text-center py-4">No signups yet</p>
           )}
         </div>
+        <SignUpSlots eventId={event.id} isAdmin={isAdmin} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Sign-Up Slots (public + admin) ─────────────────────────
+function SignUpSlots({ eventId, isAdmin }) {
+  const [slots, setSlots] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [signupForm, setSignupForm] = useState(null);
+  const [form, setForm] = useState({ name:'', email:'', phone:'' });
+  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const fetchSlots = useCallback(async () => {
+    const data = await api.get(`/api/events/${eventId}/slots`);
+    if (!data.error) setSlots(data);
+    setLoading(false);
+  }, [eventId]);
+
+  useEffect(() => { fetchSlots(); }, [fetchSlots]);
+
+  const handleSignup = async (slotId) => {
+    if (!form.name.trim()) { setMsg('Please enter your name'); return; }
+    setSubmitting(true);
+    const res = await api.post(`/api/slots/${slotId}/signup`, form);
+    setSubmitting(false);
+    if (res.error) { setMsg(res.error); return; }
+    setSignupForm(null); setForm({ name:'', email:'', phone:'' }); setMsg('');
+    fetchSlots();
+  };
+
+  const handleRemove = async (signupId) => {
+    await api.del(`/api/slot-signups/${signupId}`);
+    fetchSlots();
+  };
+
+  if (loading) return null;
+  if (slots.length === 0) {
+    return isAdmin ? (
+      <div className="mt-4 pt-4 border-t border-gray-100 text-center text-xs text-gray-400 py-2">
+        No sign-up slots — add them from Admin → Events
+      </div>
+    ) : null;
+  }
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-100">
+      <h4 className="font-bold text-gray-700 mb-3 text-sm">📋 Sign-Up Slots</h4>
+      <div className="space-y-2">
+        {slots.map(slot => {
+          const isFull = slot.capacity && slot.signupCount >= slot.capacity;
+          const isOpen = signupForm === slot.id;
+          return (
+            <div key={slot.id} className="bg-gray-50 rounded-xl p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold text-gray-800 text-sm">{slot.title}</span>
+                  {slot.capacity
+                    ? <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${isFull ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                        {isFull ? 'FULL' : `${slot.signupCount}/${slot.capacity}`}
+                      </span>
+                    : slot.signupCount > 0 && <span className="ml-2 text-xs text-gray-400">{slot.signupCount} signed up</span>
+                  }
+                </div>
+                {!isFull && !isOpen && (
+                  <button onClick={() => { setSignupForm(slot.id); setMsg(''); }}
+                    className="text-xs font-bold bg-blue-900 text-white px-3 py-1 rounded-full hover:bg-blue-700 whitespace-nowrap">
+                    Sign Up
+                  </button>
+                )}
+              </div>
+              {slot.description && <p className="text-xs text-gray-500 mt-1">{slot.description}</p>}
+              {slot.signups.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {slot.signups.map(su => (
+                    <div key={su.id} className="flex items-center justify-between bg-white rounded-lg px-2 py-1 text-xs">
+                      <span className="font-medium text-gray-700">{su.name}</span>
+                      <div className="flex items-center gap-2 text-gray-400">
+                        {su.phone && <span>{su.phone}</span>}
+                        {isAdmin && <button onClick={() => handleRemove(su.id)} className="text-red-400 hover:text-red-600">✕</button>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {isOpen && (
+                <div className="mt-2 p-3 bg-white rounded-xl border border-blue-100 space-y-2">
+                  <input value={form.name} onChange={e => setForm(p => ({...p, name: e.target.value}))}
+                    placeholder="Your name *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                  <input value={form.email} onChange={e => setForm(p => ({...p, email: e.target.value}))}
+                    placeholder="Email (optional)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                  <input value={form.phone} onChange={e => setForm(p => ({...p, phone: e.target.value}))}
+                    placeholder="Phone (optional)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+                  {msg && <p className="text-red-500 text-xs">{msg}</p>}
+                  <div className="flex gap-2">
+                    <button onClick={() => handleSignup(slot.id)} disabled={submitting}
+                      className="flex-1 bg-blue-900 text-white text-sm font-bold py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                      {submitting ? 'Signing up…' : 'Confirm Sign-Up'}
+                    </button>
+                    <button onClick={() => { setSignupForm(null); setMsg(''); }}
+                      className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -784,6 +1096,7 @@ function CalendarGrid({ events, month, setMonth, onEventClick, selectedEvent }) 
 
 // ─── Admin Page ──────────────────────────────────────────────
 function AdminLoginPage({ onLogin }) {
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -791,10 +1104,10 @@ function AdminLoginPage({ onLogin }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true); setError('');
-    const res = await api.post('/api/auth/login', { password });
+    const res = await api.post('/api/auth/login', { username, password });
     setLoading(false);
-    if (res.success) { onLogin(); }
-    else { setError(res.error || 'Incorrect password'); }
+    if (res.success) { onLogin(res); }
+    else { setError(res.error || 'Incorrect username or password'); }
   };
 
   return (
@@ -803,26 +1116,31 @@ function AdminLoginPage({ onLogin }) {
         <div className="text-center mb-6">
           <div className="text-5xl mb-3">🔐</div>
           <h2 className="text-2xl font-bold text-gray-800">Leader Access</h2>
-          <p className="text-gray-500 text-sm mt-1">Enter your pack leader password</p>
+          <p className="text-gray-500 text-sm mt-1">Sign in with your leader account</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter admin password" autoFocus />
+          <Input label="Username" value={username} onChange={e => setUsername(e.target.value)} placeholder="e.g. cubmaster" autoFocus />
+          <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" />
           {error && <div className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</div>}
           <Btn type="submit" disabled={loading} className="w-full" variant="primary" size="lg">
-            {loading ? '...' : 'Sign In as Leader'}
+            {loading ? '...' : 'Sign In'}
           </Btn>
         </form>
-        <p className="text-xs text-gray-400 text-center mt-4">Default password: <code className="bg-gray-100 px-1 rounded">cubmaster123</code></p>
+        <p className="text-xs text-gray-400 text-center mt-4">Default: username <code className="bg-gray-100 px-1 rounded">cubmaster</code></p>
       </div>
     </div>
   );
 }
 
-function AdminPage({ isAdmin, setIsAdmin }) {
+function AdminPage({ isAdmin, setIsAdmin, authInfo, setAuthInfo }) {
   const [tab, setTab] = useState('scouts');
   const [scouts, setScouts] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const role = authInfo?.role || 'pack_admin';
+  const userDen = authInfo?.den || null;
+  const isPackAdmin = role === 'pack_admin';
 
   const load = useCallback(() => {
     Promise.all([api.get('/api/scouts'), api.get('/api/events')]).then(([s, e]) => {
@@ -837,16 +1155,17 @@ function AdminPage({ isAdmin, setIsAdmin }) {
   const logout = async () => {
     await api.post('/api/auth/logout', {});
     setIsAdmin(false);
+    setAuthInfo(null);
   };
 
-  if (!isAdmin) return <AdminLoginPage onLogin={() => { setIsAdmin(true); }} />;
+  if (!isAdmin) return <AdminLoginPage onLogin={(res) => { setIsAdmin(true); setAuthInfo(res); }} />;
 
   const tabs = [
     { key:'scouts', label:'👦 Scouts' },
     { key:'awards', label:'🏅 Awards' },
     { key:'events', label:'📅 Events' },
     { key:'export', label:'📥 Export' },
-    { key:'settings', label:'⚙️ Settings' },
+    ...(isPackAdmin ? [{ key:'users', label:'👥 Users' }, { key:'settings', label:'⚙️ Settings' }] : []),
   ];
 
   return (
@@ -854,7 +1173,10 @@ function AdminPage({ isAdmin, setIsAdmin }) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
-          <p className="text-gray-500">Manage your pack</p>
+          <p className="text-gray-500">
+            {isPackAdmin ? '⭐ Pack Admin' : `🏕️ Den Leader${userDen ? ` — ${userDen}` : ''}`}
+            {authInfo?.name ? ` · ${authInfo.name}` : ''}
+          </p>
         </div>
         <Btn variant="secondary" onClick={logout}>🔒 Sign Out</Btn>
       </div>
@@ -874,7 +1196,8 @@ function AdminPage({ isAdmin, setIsAdmin }) {
           {tab === 'awards'   && <AdminAwardsTab scouts={scouts} />}
           {tab === 'events'   && <AdminEventsTab events={events} setEvents={setEvents} />}
           {tab === 'export'   && <AdminExportTab scouts={scouts} events={events} />}
-          {tab === 'settings' && <AdminSettingsTab />}
+          {tab === 'users'    && isPackAdmin && <AdminUsersTab />}
+          {tab === 'settings' && isPackAdmin && <AdminSettingsTab />}
         </>
       )}
     </div>
@@ -1017,6 +1340,119 @@ function ScoutModal({ scout, onSave, onClose }) {
 }
 
 // ─── Admin: Awards Tab ───────────────────────────────────────
+function AdminAwardRow({ award, onEdit, onDelete, onUpdated }) {
+  const [open, setOpen] = useState(false);
+  const [reqs, setReqs] = useState(null);
+  const [newReqText, setNewReqText] = useState('');
+  const [addingReq, setAddingReq] = useState(false);
+  const [localAward, setLocalAward] = useState(award);
+
+  useEffect(() => { setLocalAward(award); }, [award]);
+
+  const loadReqs = async () => {
+    const data = await api.get(`/api/awards/${award.id}/requirements`);
+    setReqs(Array.isArray(data) ? data : []);
+  };
+
+  const togglePanel = () => {
+    if (!open && reqs === null) loadReqs();
+    setOpen(o => !o);
+  };
+
+  const toggleReq = async (req) => {
+    const updated = await api.patch(`/api/requirements/${req.id}`, { completed: req.completed ? 0 : 1 });
+    if (!updated.error) { setReqs(r => r.map(x => x.id === req.id ? updated : x)); if (onUpdated) onUpdated(); }
+  };
+
+  const addReq = async () => {
+    if (!newReqText.trim()) return;
+    const r = await api.post(`/api/awards/${award.id}/requirements`, { text: newReqText.trim() });
+    if (!r.error) { setReqs(prev => [...(prev||[]), r]); setNewReqText(''); setAddingReq(false); }
+  };
+
+  const deleteReq = async (req) => {
+    const r = await api.delete(`/api/requirements/${req.id}`);
+    if (r.success) { setReqs(prev => prev.filter(x => x.id !== req.id)); if (onUpdated) onUpdated(); }
+  };
+
+  const completedCount = reqs ? reqs.filter(r => r.completed).length : null;
+  const totalCount = reqs ? reqs.length : null;
+
+  return (
+    <div className="border-b border-gray-50 last:border-0">
+      <div className="px-4 py-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0 cursor-pointer" onClick={togglePanel}>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-gray-400 text-xs" style={{display:'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform 0.15s'}}>▶</span>
+              <span className="font-semibold text-gray-800 text-sm">{localAward.name}</span>
+              <StatusBadge status={localAward.status} />
+              {localAward.dateEarned && <span className="text-xs text-gray-400">{localAward.dateEarned}</span>}
+              {reqs !== null && totalCount > 0 && (
+                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{completedCount}/{totalCount}</span>
+              )}
+            </div>
+            {localAward.status !== 'not_started' && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex-1"><ProgressBar progress={localAward.progress} status={localAward.status} size="sm" /></div>
+                <span className="text-xs text-gray-400 w-7">{localAward.progress}%</span>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-1 flex-shrink-0">
+            <Btn size="sm" variant="secondary" onClick={onEdit}>Edit</Btn>
+            <Btn size="sm" variant="danger" onClick={onDelete}>✕</Btn>
+          </div>
+        </div>
+      </div>
+      {open && (
+        <div className="bg-gray-50 border-t border-gray-100 px-4 py-3 mx-0">
+          {reqs === null && <p className="text-xs text-gray-400">Loading…</p>}
+          {reqs !== null && (
+            <div className="space-y-2">
+              {reqs.map(req => (
+                <div key={req.id} className="flex items-start gap-2 group">
+                  <input type="checkbox" checked={!!req.completed} onChange={() => toggleReq(req)}
+                    className="mt-0.5 w-4 h-4 rounded accent-emerald-600 cursor-pointer flex-shrink-0" />
+                  <span className={`text-sm flex-1 ${req.completed ? 'line-through text-gray-400' : 'text-gray-700'}`}>{req.text}</span>
+                  <button onClick={() => deleteReq(req)}
+                    className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs px-1 transition-opacity flex-shrink-0">✕</button>
+                </div>
+              ))}
+              {reqs.length === 0 && <p className="text-xs text-gray-400 italic">No requirements yet.</p>}
+            </div>
+          )}
+          <div className="mt-3 border-t border-gray-200 pt-3">
+            {addingReq ? (
+              <div className="flex gap-2">
+                <input autoFocus value={newReqText} onChange={e => setNewReqText(e.target.value)}
+                  onKeyDown={e => { if (e.key==='Enter') addReq(); if (e.key==='Escape') setAddingReq(false); }}
+                  placeholder="Requirement text…"
+                  className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400" />
+                <button onClick={addReq} className="text-sm bg-emerald-600 text-white px-3 py-1.5 rounded-lg hover:bg-emerald-700">Add</button>
+                <button onClick={() => { setAddingReq(false); setNewReqText(''); }}
+                  className="text-sm text-gray-400 hover:text-gray-600 px-2">Cancel</button>
+              </div>
+            ) : (
+              <div className="flex gap-3 flex-wrap">
+                <button onClick={() => setAddingReq(true)}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold">+ Add Requirement</button>
+                {reqs !== null && reqs.length === 0 && (
+                  <button onClick={async () => {
+                    const r = await api.post(`/api/awards/${award.id}/requirements/load-defaults`, {});
+                    if (Array.isArray(r)) { setReqs(r); if (onUpdated) onUpdated(); }
+                    else alert(r.error || 'No BSA defaults found for this award.');
+                  }} className="text-xs text-amber-600 hover:text-amber-800 font-semibold">⭐ Load BSA Requirements</button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminAwardsTab({ scouts }) {
   const [selectedScout, setSelectedScout] = useState(null);
   const [awards, setAwards] = useState([]);
@@ -1105,8 +1541,9 @@ function AdminAwardsTab({ scouts }) {
                 <h3 className="font-bold text-gray-800 text-lg">{selectedScout.firstName} {selectedScout.lastName}</h3>
                 <RankBadge rank={selectedScout.rank} />
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Btn size="sm" variant="secondary" onClick={loadDefaults} title="Load BSA default awards for this rank">Load Defaults</Btn>
+                <LoadAllReqsButton scoutId={selectedScout.id} onDone={() => {}} />
                 <Btn size="sm" variant="gold" onClick={() => setModal('add')}>+ Add Award</Btn>
               </div>
             </div>
@@ -1119,27 +1556,10 @@ function AdminAwardsTab({ scouts }) {
                     <div key={type} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
                       <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-600 uppercase">{AWARD_TYPE_LABELS[type]}</div>
                       {typeAwards.map(award => (
-                        <div key={award.id} className="px-4 py-3 border-b border-gray-50 last:border-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-gray-800 text-sm">{award.name}</div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <StatusBadge status={award.status} />
-                                {award.dateEarned && <span className="text-xs text-gray-400">{award.dateEarned}</span>}
-                              </div>
-                              {award.status !== 'not_started' && (
-                                <div className="flex items-center gap-2 mt-1.5">
-                                  <div className="flex-1"><ProgressBar progress={award.progress} status={award.status} size="sm" /></div>
-                                  <span className="text-xs text-gray-400 w-7">{award.progress}%</span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex gap-1 flex-shrink-0">
-                              <Btn size="sm" variant="secondary" onClick={() => setModal(award)}>Edit</Btn>
-                              <Btn size="sm" variant="danger" onClick={() => handleDelete(award.id)}>✕</Btn>
-                            </div>
-                          </div>
-                        </div>
+                        <AdminAwardRow key={award.id} award={award}
+                          onEdit={() => setModal(award)}
+                          onDelete={() => handleDelete(award.id)}
+                          onUpdated={() => { api.get(`/api/awards?scoutId=${selectedScout.id}`).then(d => setAwards(Array.isArray(d) ? d : [])); }} />
                       ))}
                     </div>
                   );
@@ -1202,6 +1622,7 @@ function AdminEventsTab({ events, setEvents }) {
   const [modal, setModal] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
   const [detailModal, setDetailModal] = useState(null);
+  const [slotsModal, setSlotsModal] = useState(null); // event object for slot management
   const today = new Date().toISOString().split('T')[0];
 
   const upcoming = events.filter(e => e.date >= today).sort((a,b) => a.date.localeCompare(b.date));
@@ -1245,7 +1666,8 @@ function AdminEventsTab({ events, setEvents }) {
         </button>
       </td>
       <td className="px-4 py-3">
-        <div className="flex gap-2 justify-end">
+        <div className="flex gap-2 justify-end flex-wrap">
+          <Btn size="sm" variant="secondary" onClick={() => setSlotsModal(ev)}>Slots</Btn>
           <Btn size="sm" variant="secondary" onClick={() => setModal(ev)}>Edit</Btn>
           <Btn size="sm" variant="danger" onClick={() => setConfirmDel(ev)}>Delete</Btn>
         </div>
@@ -1286,6 +1708,7 @@ function AdminEventsTab({ events, setEvents }) {
         <EventTable title={`Past Events (${past.length})`} evList={past} />
       </div>
 
+      {slotsModal && <SlotManageModal event={slotsModal} onClose={() => setSlotsModal(null)} />}
       {modal && <EventModal event={modal === 'add' ? null : modal} onSave={handleSave} onClose={() => setModal(null)} />}
 
       {confirmDel && (
@@ -1322,6 +1745,136 @@ function AdminEventsTab({ events, setEvents }) {
         </Modal>
       )}
     </div>
+  );
+}
+
+function SlotManageModal({ event, onClose }) {
+  const [slots, setSlots] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [addForm, setAddForm] = useState(null); // null = hidden, {} = open
+  const [editSlot, setEditSlot] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const fetchSlots = useCallback(async () => {
+    const data = await api.get(`/api/events/${event.id}/slots`);
+    if (!data.error) setSlots(data);
+    setLoading(false);
+  }, [event.id]);
+
+  useEffect(() => { fetchSlots(); }, [fetchSlots]);
+
+  const handleAdd = async () => {
+    if (!addForm?.title?.trim()) return;
+    setSaving(true);
+    const res = await api.post(`/api/events/${event.id}/slots`, {
+      title: addForm.title, description: addForm.description || '',
+      capacity: addForm.capacity ? parseInt(addForm.capacity) : null
+    });
+    setSaving(false);
+    if (!res.error) { setAddForm(null); fetchSlots(); }
+  };
+
+  const handleEdit = async () => {
+    if (!editSlot?.title?.trim()) return;
+    setSaving(true);
+    await api.put(`/api/slots/${editSlot.id}`, {
+      title: editSlot.title, description: editSlot.description || '',
+      capacity: editSlot.capacity ? parseInt(editSlot.capacity) : null
+    });
+    setSaving(false);
+    setEditSlot(null); fetchSlots();
+  };
+
+  const handleDeleteSlot = async (slotId) => {
+    if (!confirm('Delete this slot and all its sign-ups?')) return;
+    await api.del(`/api/slots/${slotId}`);
+    fetchSlots();
+  };
+
+  const handleRemoveSignup = async (signupId) => {
+    await api.del(`/api/slot-signups/${signupId}`);
+    fetchSlots();
+  };
+
+  const SlotForm = ({ data, setData, onSave, onCancel, label }) => (
+    <div className="bg-blue-50 rounded-xl p-4 space-y-3 border border-blue-100">
+      <input value={data.title || ''} onChange={e => setData(p => ({...p, title: e.target.value}))}
+        placeholder="Slot title * (e.g. Bring cookies for 20)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+      <input value={data.description || ''} onChange={e => setData(p => ({...p, description: e.target.value}))}
+        placeholder="Description (optional)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+      <input value={data.capacity || ''} onChange={e => setData(p => ({...p, capacity: e.target.value}))}
+        placeholder="Max spots (leave blank for unlimited)" type="number" min="1"
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400" />
+      <div className="flex gap-2">
+        <Btn size="sm" variant="gold" onClick={onSave} disabled={saving}>{saving ? 'Saving…' : label}</Btn>
+        <Btn size="sm" variant="secondary" onClick={onCancel}>Cancel</Btn>
+      </div>
+    </div>
+  );
+
+  return (
+    <Modal title={`Sign-Up Slots: ${event.title}`} onClose={onClose} wide>
+      <p className="text-sm text-gray-500 mb-4">{event.date}{event.time ? ' at ' + event.time : ''}{event.location ? ' · ' + event.location : ''}</p>
+
+      {!addForm && (
+        <div className="flex justify-end mb-4">
+          <Btn size="sm" variant="gold" onClick={() => setAddForm({ title:'', description:'', capacity:'' })}>+ Add Slot</Btn>
+        </div>
+      )}
+      {addForm && <div className="mb-4"><SlotForm data={addForm} setData={setAddForm} onSave={handleAdd} onCancel={() => setAddForm(null)} label="Add Slot" /></div>}
+
+      {loading && <p className="text-center text-gray-400 py-8">Loading…</p>}
+      {!loading && slots.length === 0 && !addForm && (
+        <p className="text-center text-gray-400 py-8">No slots yet. Click "Add Slot" to create sign-up options for this event.</p>
+      )}
+
+      <div className="space-y-4">
+        {slots.map(slot => (
+          <div key={slot.id} className="bg-gray-50 rounded-xl overflow-hidden border border-gray-100">
+            {editSlot?.id === slot.id ? (
+              <div className="p-3">
+                <SlotForm data={editSlot} setData={setEditSlot} onSave={handleEdit} onCancel={() => setEditSlot(null)} label="Save Changes" />
+              </div>
+            ) : (
+              <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-100">
+                <div>
+                  <span className="font-semibold text-gray-800">{slot.title}</span>
+                  {slot.capacity
+                    ? <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${slot.signupCount >= slot.capacity ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                        {slot.signupCount}/{slot.capacity} spots
+                      </span>
+                    : <span className="ml-2 text-xs text-gray-400">{slot.signupCount} signed up · unlimited</span>
+                  }
+                  {slot.description && <p className="text-xs text-gray-400 mt-0.5">{slot.description}</p>}
+                </div>
+                <div className="flex gap-2 ml-2">
+                  <Btn size="sm" variant="secondary" onClick={() => setEditSlot({...slot})}>Edit</Btn>
+                  <Btn size="sm" variant="danger" onClick={() => handleDeleteSlot(slot.id)}>Delete</Btn>
+                </div>
+              </div>
+            )}
+            <div className="divide-y divide-gray-50">
+              {slot.signups.map(su => (
+                <div key={su.id} className="flex items-center justify-between px-4 py-2 text-sm hover:bg-gray-50">
+                  <div>
+                    <span className="font-medium text-gray-800">{su.name}</span>
+                    {su.email && <span className="text-gray-400 ml-2 text-xs">{su.email}</span>}
+                    {su.phone && <span className="text-gray-400 ml-2 text-xs">{su.phone}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <span>{String(su.signupDate || '').split('T')[0]}</span>
+                    <button onClick={() => handleRemoveSignup(su.id)} className="text-red-400 hover:text-red-600 font-bold">✕</button>
+                  </div>
+                </div>
+              ))}
+              {slot.signups.length === 0 && (
+                <p className="text-xs text-gray-400 text-center py-3">No sign-ups yet</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Modal>
   );
 }
 
@@ -1428,10 +1981,174 @@ function AdminExportTab({ scouts, events }) {
 }
 
 // ─── Admin: Settings Tab ─────────────────────────────────────
+function AdminUsersTab() {
+  const [users, setUsers] = useState([]);
+  const [modal, setModal] = useState(null); // null | 'add' | {user} | {user, resetOnly}
+  const [confirmDel, setConfirmDel] = useState(null);
+
+  const load = () => api.get('/api/users').then(d => setUsers(Array.isArray(d) ? d : []));
+  useEffect(() => { load(); }, []);
+
+  const handleSave = async (data) => {
+    let res;
+    if (modal === 'add') {
+      res = await api.post('/api/users', data);
+    } else {
+      res = await api.put(`/api/users/${modal.id}`, data);
+    }
+    if (res.error) { alert(res.error); return; }
+    load();
+    setModal(null);
+  };
+
+  const handleDelete = async (id) => {
+    const r = await api.delete(`/api/users/${id}`);
+    if (r.error) { alert(r.error); return; }
+    setUsers(prev => prev.filter(u => u.id !== id));
+    setConfirmDel(null);
+  };
+
+  const packAdmins = users.filter(u => u.role === 'pack_admin');
+  const denLeaders = users.filter(u => u.role === 'den_leader');
+
+  return (
+    <div className="max-w-2xl">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">👥 Leader Accounts</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Pack Admins have full access. Den Leaders see only their assigned den.</p>
+        </div>
+        <Btn variant="gold" size="sm" onClick={() => setModal('add')}>+ Add Leader</Btn>
+      </div>
+
+      {[['Pack Admins', packAdmins, '⭐'], ['Den Leaders', denLeaders, '🏕️']].map(([label, group, icon]) => (
+        group.length > 0 && (
+          <div key={label} className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
+            <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 font-bold text-sm text-gray-700">{icon} {label}</div>
+            <div className="divide-y divide-gray-50">
+              {group.map(u => (
+                <div key={u.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-gray-800">{u.name || u.username}
+                      <span className="text-gray-400 font-normal text-sm ml-2">@{u.username}</span>
+                    </div>
+                    {u.den && <div className="text-xs text-gray-500 mt-0.5">Den: {u.den}</div>}
+                  </div>
+                  <div className="flex gap-2">
+                    <Btn size="sm" variant="secondary" onClick={() => setModal({...u, resetOnly: true})}>🔑 Reset PW</Btn>
+                    <Btn size="sm" variant="secondary" onClick={() => setModal(u)}>Edit</Btn>
+                    <Btn size="sm" variant="danger" onClick={() => setConfirmDel(u)}>✕</Btn>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      ))}
+
+      {users.length === 0 && <p className="text-gray-400 text-center py-8">No users yet.</p>}
+
+      {confirmDel && (
+        <Modal title="Remove Leader" onClose={() => setConfirmDel(null)}>
+          <p className="text-gray-600 mb-4">Remove <strong>{confirmDel.name || confirmDel.username}</strong>? They will no longer be able to log in.</p>
+          <div className="flex gap-3 justify-end">
+            <Btn variant="secondary" onClick={() => setConfirmDel(null)}>Cancel</Btn>
+            <Btn variant="danger" onClick={() => handleDelete(confirmDel.id)}>Remove</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {modal && (
+        modal.resetOnly
+          ? <ResetPasswordModal user={modal} onSave={handleSave} onClose={() => setModal(null)} />
+          : <UserModal user={modal === 'add' ? null : modal} onSave={handleSave} onClose={() => setModal(null)} />
+      )}
+    </div>
+  );
+}
+
+function ResetPasswordModal({ user, onSave, onClose }) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (password !== confirm) { setError('Passwords do not match'); return; }
+    onSave({ password });
+  };
+
+  return (
+    <Modal title={`Reset Password — ${user.name || user.username}`} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <p className="text-sm text-gray-500">Set a new password for <strong>@{user.username}</strong>. They can change it themselves after logging in.</p>
+        <Input label="New Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 6 characters" autoFocus />
+        <Input label="Confirm Password" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repeat password" />
+        {error && <div className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</div>}
+        <div className="flex gap-3 pt-1">
+          <Btn type="submit" variant="primary" className="flex-1">Set New Password</Btn>
+          <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function UserModal({ user, onSave, onClose }) {
+  const [form, setForm] = useState({
+    username: user?.username || '',
+    name: user?.name || '',
+    role: user?.role || 'den_leader',
+    den: user?.den || '',
+    password: '',
+  });
+  const set = k => e => setForm(f => ({...f, [k]: e.target.value}));
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const data = {...form};
+    if (!data.password) delete data.password; // keep existing if blank on edit
+    onSave(data);
+  };
+
+  return (
+    <Modal title={user ? `Edit ${user.name || user.username}` : 'Add Leader'} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {!user && <Input label="Username" value={form.username} onChange={set('username')} placeholder="e.g. dleader_den2" autoFocus required />}
+        <Input label="Display Name" value={form.name} onChange={set('name')} placeholder="e.g. Jane Smith" />
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Role</label>
+          <select value={form.role} onChange={set('role')}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="pack_admin">⭐ Pack Admin — full access to everything</option>
+            <option value="den_leader">🏕️ Den Leader — sees only their assigned den</option>
+          </select>
+        </div>
+        {form.role === 'den_leader' && (
+          <Input label="Assigned Den" value={form.den} onChange={set('den')} placeholder="e.g. Den 1" />
+        )}
+        <Input label={user ? 'New Password (leave blank to keep current)' : 'Password'} type="password"
+          value={form.password} onChange={set('password')} placeholder={user ? '••••••••' : 'At least 6 characters'} />
+        <div className="flex gap-3 pt-2">
+          <Btn type="submit" variant="primary" className="flex-1">{user ? 'Save Changes' : 'Create Account'}</Btn>
+          <Btn variant="secondary" onClick={onClose}>Cancel</Btn>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function AdminSettingsTab() {
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [msg, setMsg] = useState('');
+  const [emailSettings, setEmailSettings] = useState({ notification_email:'', smtp_user:'', smtp_pass:'', smtp_pass_set: false });
+  const [emailMsg, setEmailMsg] = useState('');
+
+  useEffect(() => {
+    api.get('/api/settings/notifications').then(d => { if (!d.error) setEmailSettings(d); });
+  }, []);
 
   const changePassword = async () => {
     if (newPass !== confirmPass) { setMsg('❌ Passwords do not match'); return; }
@@ -1441,8 +2158,15 @@ function AdminSettingsTab() {
     else setMsg(`❌ ${res.error}`);
   };
 
+  const saveEmailSettings = async () => {
+    const res = await api.put('/api/settings/notifications', emailSettings);
+    if (res.success) setEmailMsg('✅ Saved!');
+    else setEmailMsg('❌ Error saving settings');
+    setTimeout(() => setEmailMsg(''), 3000);
+  };
+
   return (
-    <div className="max-w-md">
+    <div className="max-w-lg space-y-6">
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
         <h3 className="font-bold text-gray-800 text-lg mb-4">🔑 Change Admin Password</h3>
         <div className="space-y-3">
@@ -1450,6 +2174,33 @@ function AdminSettingsTab() {
           <Input label="Confirm New Password" type="password" value={confirmPass} onChange={e => setConfirmPass(e.target.value)} placeholder="Repeat password" />
           {msg && <div className={`text-sm px-3 py-2 rounded-lg ${msg.includes('✅') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>{msg}</div>}
           <Btn onClick={changePassword} variant="primary">Update Password</Btn>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <h3 className="font-bold text-gray-800 text-lg mb-1">📧 Sign-Up Notifications</h3>
+        <p className="text-sm text-gray-500 mb-4">Get an email whenever someone signs up for a slot. Requires a Gmail account with an App Password.</p>
+        <div className="space-y-3">
+          <Input label="Pack Leader Email (receive notifications here)"
+            value={emailSettings.notification_email}
+            onChange={e => setEmailSettings(p => ({...p, notification_email: e.target.value}))}
+            placeholder="leader@gmail.com" />
+          <Input label="Gmail Address (send from this address)"
+            value={emailSettings.smtp_user}
+            onChange={e => setEmailSettings(p => ({...p, smtp_user: e.target.value}))}
+            placeholder="yourpack@gmail.com" />
+          <div>
+            <Input label={emailSettings.smtp_pass_set ? "Gmail App Password (leave blank to keep existing)" : "Gmail App Password"}
+              type="password"
+              value={emailSettings.smtp_pass || ''}
+              onChange={e => setEmailSettings(p => ({...p, smtp_pass: e.target.value}))}
+              placeholder={emailSettings.smtp_pass_set ? "••••••••••••••••" : "16-character app password"} />
+            <p className="text-xs text-gray-400 mt-1">
+              Create an App Password at <a href="https://myaccount.google.com/apppasswords" target="_blank" className="text-blue-500 underline">myaccount.google.com/apppasswords</a> (requires 2-Step Verification).
+            </p>
+          </div>
+          {emailMsg && <div className={`text-sm px-3 py-2 rounded-lg ${emailMsg.includes('✅') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>{emailMsg}</div>}
+          <Btn onClick={saveEmailSettings} variant="primary">Save Email Settings</Btn>
         </div>
       </div>
     </div>
@@ -1461,10 +2212,13 @@ function App() {
   const [page, setPage] = useState('home');
   const [selectedScoutId, setSelectedScoutId] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [authInfo, setAuthInfo] = useState(null);
 
   // Check admin session on load
   useEffect(() => {
-    api.get('/api/auth/status').then(data => { if (data.isAdmin) setIsAdmin(true); });
+    api.get('/api/auth/status').then(data => {
+      if (data.isAdmin) { setIsAdmin(true); setAuthInfo(data); }
+    });
   }, []);
 
   // Sync with URL hash
@@ -1500,7 +2254,7 @@ function App() {
         {page === 'home'     && <HomePage setPage={navigate} setSelectedScoutId={setSelectedScoutId} />}
         {page === 'scout'    && <ScoutPage scoutId={selectedScoutId} setPage={navigate} isAdmin={isAdmin} />}
         {page === 'calendar' && <CalendarPage isAdmin={isAdmin} />}
-        {page === 'admin'    && <AdminPage isAdmin={isAdmin} setIsAdmin={setIsAdmin} />}
+        {page === 'admin'    && <AdminPage isAdmin={isAdmin} setIsAdmin={setIsAdmin} authInfo={authInfo} setAuthInfo={setAuthInfo} />}
       </main>
       <footer className="text-center py-6 text-xs text-gray-400 mt-8 border-t border-gray-100">
         ⚜️ Cub Scouts Pack Manager · Be Prepared

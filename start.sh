@@ -22,6 +22,7 @@ echo "  📦  Checking dependencies..."
 python3 -c "import flask" 2>/dev/null    || pip3 install flask --quiet
 python3 -c "import bcrypt" 2>/dev/null   || pip3 install bcrypt --quiet
 python3 -c "import reportlab" 2>/dev/null || pip3 install reportlab --quiet
+python3 -c "import psycopg2" 2>/dev/null || pip3 install psycopg2-binary --quiet
 echo "  ✅  Dependencies ready."
 echo ""
 
