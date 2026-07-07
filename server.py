@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Cub Scouts Pack Manager - Python/Flask Backend
-Supports both SQLite (local dev) and PostgreSQL (Railway/production)
+Stack: Vercel (hosting) + Supabase PostgreSQL (DB) + GitHub (source)
 Run locally:  bash start.sh  →  http://localhost:3000
 Default admin password: cubmaster123
 """
@@ -56,7 +56,7 @@ app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 PORT = int(os.environ.get('PORT', 3000))
 
 # ─── Database Layer ───────────────────────────────────────────
-# Uses PostgreSQL when DATABASE_URL is set (Railway), otherwise SQLite (local dev)
+# Uses PostgreSQL when DATABASE_URL is set (Supabase in production), otherwise SQLite (local dev)
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 DB_PATH = os.environ.get('DB_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scouts.db'))
@@ -89,7 +89,7 @@ class Database:
     def _conn(self):
         if self.is_pg:
             url = DATABASE_URL
-            # Railway sometimes gives postgres:// — psycopg2 needs postgresql://
+            # Supabase sometimes gives postgres:// — psycopg2 needs postgresql://
             if url.startswith('postgres://'):
                 url = 'postgresql://' + url[len('postgres://'):]
             return self._pg.connect(url)
