@@ -10,22 +10,24 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
   <style>
-    body { font-family: 'Cabin', 'Segoe UI', system-ui, sans-serif; background: #F4EDDC; }
+    body {
+      font-family: 'Cabin', 'Segoe UI', system-ui, sans-serif;
+      background-color: #EEF4FF;
+      background-image:
+        linear-gradient(rgba(0,63,135,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,63,135,0.04) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
     .progress-bar-inner { transition: width 0.6s ease; }
-    .scout-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(74,50,20,0.18); }
-    .scout-card { transition: transform 0.2s, box-shadow 0.2s; background: #FDFAF5; }
+    .scout-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,63,135,0.12); }
+    .scout-card { transition: transform 0.2s, box-shadow 0.2s; }
     .rank-badge { font-weight: 700; letter-spacing: 0.04em; }
     @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
     .fade-in { animation: fadeIn 0.3s ease; }
     ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #EDE5D4; }
-    ::-webkit-scrollbar-thumb { background: #A07D65; border-radius: 3px; }
+    ::-webkit-scrollbar-track { background: #E5E7EB; }
+    ::-webkit-scrollbar-thumb { background: #3B82F6; border-radius: 3px; }
     .modal-backdrop { backdrop-filter: blur(3px); }
-    /* Warm card backgrounds */
-    .bg-white { background-color: #FDFAF5 !important; }
-    .bg-gray-50 { background-color: #F5EFE3 !important; }
-    /* Nature section dividers */
-    .nature-section-line { border-color: #C9B99A; }
   </style>
 </head>
 <body>
@@ -120,7 +122,7 @@ function ProgressBar({ progress, status, size = 'md' }) {
 
 function Spinner() {
   return <div className="flex justify-center items-center py-16">
-    <div className="w-10 h-10 border-4 border-amber-200 border-t-green-700 rounded-full animate-spin"></div>
+    <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
   </div>;
 }
 
@@ -128,7 +130,7 @@ function Input({ label, ...props }) {
   return (
     <div className="flex flex-col gap-1">
       {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
-      <input className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-600 focus:border-transparent" {...props} />
+      <input className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" {...props} />
     </div>
   );
 }
@@ -137,7 +139,7 @@ function Select({ label, children, ...props }) {
   return (
     <div className="flex flex-col gap-1">
       {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
-      <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-600 bg-white" {...props}>
+      <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" {...props}>
         {children}
       </select>
     </div>
@@ -148,7 +150,7 @@ function Textarea({ label, ...props }) {
   return (
     <div className="flex flex-col gap-1">
       {label && <label className="text-sm font-medium text-gray-700">{label}</label>}
-      <textarea className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-600 resize-none" rows={3} {...props} />
+      <textarea className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" rows={3} {...props} />
     </div>
   );
 }
@@ -156,13 +158,13 @@ function Textarea({ label, ...props }) {
 function Btn({ children, variant='primary', size='md', ...props }) {
   const base = 'inline-flex items-center justify-center gap-2 font-semibold rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed';
   const variants = {
-    primary:   'bg-green-900 text-white hover:bg-green-800 focus:ring-green-700',
+    primary:   'bg-blue-800 text-white hover:bg-blue-700 focus:ring-blue-600',
     secondary: 'bg-stone-100 text-stone-700 hover:bg-stone-200 focus:ring-stone-400',
     success:   'bg-emerald-700 text-white hover:bg-emerald-800 focus:ring-emerald-600',
     danger:    'bg-red-700 text-white hover:bg-red-800 focus:ring-red-600',
     warning:   'bg-amber-600 text-white hover:bg-amber-700 focus:ring-amber-500',
-    outline:   'border-2 border-green-900 text-green-900 hover:bg-green-50 focus:ring-green-700',
-    gold:      'bg-yellow-500 text-green-900 hover:bg-yellow-400 focus:ring-yellow-400 font-bold',
+    outline:   'border-2 border-blue-800 text-blue-900 hover:bg-blue-50 focus:ring-blue-600',
+    gold:      'bg-yellow-400 text-blue-900 hover:bg-yellow-300 focus:ring-yellow-400 font-bold',
   };
   const sizes = { sm:'px-3 py-1.5 text-xs', md:'px-4 py-2 text-sm', lg:'px-6 py-3 text-base' };
   return <button className={`${base} ${variants[variant]} ${sizes[size]}`} {...props}>{children}</button>;
@@ -171,31 +173,51 @@ function Btn({ children, variant='primary', size='md', ...props }) {
 // ─── Navbar ─────────────────────────────────────────────────
 function Navbar({ page, setPage, isAdmin, onAdminClick }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const HomeIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+    </svg>
+  );
+  const CalIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+    </svg>
+  );
+  const LockIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+    </svg>
+  );
+  const UnlockIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>
+    </svg>
+  );
   const navLinks = [
-    { key:'home', label:'🏠 Home' },
-    { key:'calendar', label:'📅 Calendar' },
+    { key:'home', label:'Home', icon: <HomeIcon /> },
+    { key:'calendar', label:'Calendar', icon: <CalIcon /> },
   ];
   return (
-    <nav className="sticky top-0 z-40 shadow-lg" style={{background:'#1B4332'}}>
+    <nav className="sticky top-0 z-40 shadow-lg" style={{background:'#003F87'}}>
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <button onClick={() => setPage('home')} className="flex items-center gap-3 text-white hover:text-yellow-300 transition-colors">
             <span className="text-2xl">⚜️</span>
             <div className="text-left">
               <div className="font-bold text-base leading-tight" style={{color:'#FCC200'}}>CUB SCOUTS</div>
-              <div className="text-xs leading-tight" style={{color:'#86efac'}}>Pack Manager</div>
+              <div className="text-xs leading-tight" style={{color:'#93C5FD'}}>Pack Manager</div>
             </div>
           </button>
           <div className="hidden md:flex items-center gap-2">
             {navLinks.map(l => (
               <button key={l.key} onClick={() => setPage(l.key)}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${page === l.key ? 'bg-yellow-400 text-green-900' : 'text-green-100 hover:bg-green-800 hover:text-white'}`}>
-                {l.label}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${page === l.key ? 'bg-yellow-400 text-blue-900' : 'text-blue-100 hover:bg-blue-700 hover:text-white'}`}>
+                {l.icon}{l.label}
               </button>
             ))}
             <button onClick={onAdminClick}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ml-2 ${isAdmin ? 'bg-yellow-400 text-green-900' : 'bg-green-800 text-green-100 hover:bg-green-700 hover:text-white'}`}>
-              {isAdmin ? '🔓 Admin Panel' : '🔐 Leader Login'}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ml-2 flex items-center gap-1.5 ${isAdmin ? 'bg-yellow-400 text-blue-900' : 'bg-blue-700 text-blue-100 hover:bg-blue-600 hover:text-white'}`}>
+              {isAdmin ? <><UnlockIcon /> Admin Panel</> : <><LockIcon /> Leader Login</>}
             </button>
           </div>
           <button className="md:hidden text-white p-2" onClick={() => setMenuOpen(!menuOpen)}>
@@ -204,16 +226,16 @@ function Navbar({ page, setPage, isAdmin, onAdminClick }) {
         </div>
       </div>
       {menuOpen && (
-        <div className="md:hidden border-t border-green-800 pb-3">
+        <div className="md:hidden border-t border-blue-700 pb-3">
           {navLinks.map(l => (
             <button key={l.key} onClick={() => { setPage(l.key); setMenuOpen(false); }}
-              className={`block w-full text-left px-4 py-3 text-sm font-semibold ${page===l.key ? 'bg-yellow-400 text-green-900' : 'text-green-100 hover:bg-green-800'}`}>
-              {l.label}
+              className={`flex items-center gap-2 w-full px-4 py-3 text-sm font-semibold ${page===l.key ? 'bg-yellow-400 text-blue-900' : 'text-blue-100 hover:bg-blue-700'}`}>
+              {l.icon}{l.label}
             </button>
           ))}
           <button onClick={() => { onAdminClick(); setMenuOpen(false); }}
-            className="block w-full text-left px-4 py-3 text-sm font-semibold text-green-100 hover:bg-green-800">
-            {isAdmin ? '🔓 Admin Panel' : '🔐 Leader Login'}
+            className="flex items-center gap-1.5 w-full px-4 py-3 text-sm font-semibold text-blue-100 hover:bg-blue-700">
+            {isAdmin ? <><UnlockIcon /> Admin Panel</> : <><LockIcon /> Leader Login</>}
           </button>
         </div>
       )}
@@ -248,8 +270,8 @@ function HomePage({ setPage, setSelectedScoutId }) {
     <div className="max-w-7xl mx-auto px-4 py-8 fade-in">
       {/* Pack Stats */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-1" style={{color:'#1B4332'}}>🌲 Pack Roster</h1>
-        <p className="mb-6" style={{color:'#6B5744'}}>{scouts.length} scouts across {RANKS.filter(r => totalByRank[r] > 0).length} ranks</p>
+        <h1 className="text-3xl font-bold mb-1" style={{color:'#003F87'}}>Pack Roster</h1>
+        <p className="mb-6" style={{color:'#6B7280'}}>{scouts.length} scouts across {RANKS.filter(r => totalByRank[r] > 0).length} ranks</p>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
           {RANKS.map(r => {
             const info = RANK_INFO[r];
@@ -271,7 +293,7 @@ function HomePage({ setPage, setSelectedScoutId }) {
         <div className="relative flex-1">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">🔍</span>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search scouts by name or den..."
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-600 bg-white" />
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
         </div>
         {filterRank !== 'All' && (
           <button onClick={() => setFilterRank('All')} className="px-4 py-2.5 bg-amber-100 text-amber-900 rounded-xl text-sm font-semibold hover:bg-amber-200">
@@ -292,10 +314,10 @@ function HomePage({ setPage, setSelectedScoutId }) {
                 <div className="flex items-center gap-3 mb-4">
                   <span className="text-3xl">{info.emoji}</span>
                   <div>
-                    <h2 className="text-xl font-bold" style={{color:'#2C1810'}}>{rank === 'AOL' ? 'Arrow of Light' : rank} Scouts</h2>
-                    <p className="text-sm" style={{color:'#7B5E4B'}}>{info.grade} · {group.length} scout{group.length !== 1 ? 's' : ''}</p>
+                    <h2 className="text-xl font-bold" style={{color:'#1F2937'}}>{rank === 'AOL' ? 'Arrow of Light' : rank} Scouts</h2>
+                    <p className="text-sm" style={{color:'#6B7280'}}>{info.grade} · {group.length} scout{group.length !== 1 ? 's' : ''}</p>
                   </div>
-                  <div className="flex-1 border-b-2 ml-2" style={{borderColor:'#C9B99A'}}></div>
+                  <div className="flex-1 border-b-2 ml-2" style={{borderColor:'#E5E7EB'}}></div>
                 </div>
                 {group.length === 0 ? (
                   <p className="text-gray-400 italic text-sm pl-2">No scouts found</p>
@@ -383,22 +405,22 @@ function ScoutCard({ scout, onClick }) {
 
   return (
     <div onClick={onClick} className="scout-card rounded-2xl border cursor-pointer overflow-hidden"
-      style={{borderColor: info.border, background:'#FDFAF5'}}>
+      style={{borderColor: info.border, background:'#FFFFFF'}}>
       <div className="h-2.5" style={{background: `linear-gradient(90deg, ${info.color}, ${info.color}CC)`}}></div>
       <div className="p-4">
         <div className="flex items-start gap-3 mb-2">
           <ScoutAvatar scout={scout} size="md" />
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-1">
-              <h3 className="font-bold text-base leading-tight" style={{color:'#2C1810'}}>{scout.firstName} {scout.lastName}</h3>
+              <h3 className="font-bold text-base leading-tight" style={{color:'#1F2937'}}>{scout.firstName} {scout.lastName}</h3>
               <RankBadge rank={scout.rank} />
             </div>
-            <p className="text-xs mt-0.5" style={{color:'#7B5E4B'}}>{scout.den || 'No den assigned'}</p>
+            <p className="text-xs mt-0.5" style={{color:'#6B7280'}}>{scout.den || 'No den assigned'}</p>
           </div>
         </div>
         {awards !== null && (
           <div className="mt-2">
-            <div className="flex justify-between text-xs mb-1" style={{color:'#7B5E4B'}}>
+            <div className="flex justify-between text-xs mb-1" style={{color:'#6B7280'}}>
               <span>{completed}/{total} awards</span>
               <span>{overallPct}%</span>
             </div>
@@ -464,7 +486,7 @@ function AwardRow({ award, isAdmin, onAwardUpdated }) {
   return (
     <div>
       <div className="px-5 py-3 cursor-pointer select-none transition-colors" style={{}} onClick={toggle}
-        onMouseOver={e=>e.currentTarget.style.background='#F0E9DC'} onMouseOut={e=>e.currentTarget.style.background=''}>
+        onMouseOver={e=>e.currentTarget.style.background='#EEF2FF'} onMouseOut={e=>e.currentTarget.style.background=''}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -488,10 +510,10 @@ function AwardRow({ award, isAdmin, onAwardUpdated }) {
       </div>
 
       {open && (
-        <div className="border-t px-5 py-3" style={{background:'#F5EFE3', borderColor:'#D9CABB'}}>
-          {reqs === null && <p className="text-xs py-2" style={{color:'#A07D65'}}>Loading…</p>}
+        <div className="border-t px-5 py-3" style={{background:'#EEF2FF', borderColor:'#C7D2FE'}}>
+          {reqs === null && <p className="text-xs py-2" style={{color:'#9CA3AF'}}>Loading…</p>}
           {reqs !== null && reqs.length === 0 && !isAdmin && (
-            <p className="text-xs italic py-1" style={{color:'#A07D65'}}>No requirements added yet.</p>
+            <p className="text-xs italic py-1" style={{color:'#9CA3AF'}}>No requirements added yet.</p>
           )}
           {reqs !== null && (
             <div className="space-y-2">
@@ -500,9 +522,9 @@ function AwardRow({ award, isAdmin, onAwardUpdated }) {
                   <input type="checkbox" checked={!!req.completed}
                     onChange={() => isAdmin && toggleReq(req)}
                     disabled={!isAdmin}
-                    className="mt-0.5 w-4 h-4 rounded accent-green-700 cursor-pointer flex-shrink-0" />
+                    className="mt-0.5 w-4 h-4 rounded accent-blue-600 cursor-pointer flex-shrink-0" />
                   <span className={`text-sm flex-1 ${req.completed ? 'line-through' : ''}`}
-                    style={{color: req.completed ? '#A07D65' : '#2C1810'}}>{req.text}</span>
+                    style={{color: req.completed ? '#9CA3AF' : '#1F2937'}}>{req.text}</span>
                   {isAdmin && (
                     <button onClick={() => deleteReq(req)}
                       className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-1 transition-opacity flex-shrink-0">✕</button>
@@ -513,21 +535,21 @@ function AwardRow({ award, isAdmin, onAwardUpdated }) {
           )}
 
           {isAdmin && (
-            <div className="mt-3 border-t pt-3" style={{borderColor:'#C9B99A'}}>
+            <div className="mt-3 border-t pt-3" style={{borderColor:'#E5E7EB'}}>
               {addingReq ? (
                 <div className="flex gap-2">
                   <input autoFocus value={newReqText} onChange={e => setNewReqText(e.target.value)}
                     onKeyDown={e => { if (e.key==='Enter') addReq(); if (e.key==='Escape') setAddingReq(false); }}
                     placeholder="Requirement text…"
-                    className="flex-1 text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-green-600" style={{borderColor:'#C9B99A', background:'#FDFAF5'}} />
-                  <button onClick={addReq} className="text-sm text-white px-3 py-1.5 rounded-lg" style={{background:'#2D6A4F'}}>Add</button>
+                    className="flex-1 text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500" style={{borderColor:'#E5E7EB', background:'#FFFFFF'}} />
+                  <button onClick={addReq} className="text-sm text-white px-3 py-1.5 rounded-lg" style={{background:'#1D4ED8'}}>Add</button>
                   <button onClick={() => { setAddingReq(false); setNewReqText(''); }}
-                    className="text-sm px-2" style={{color:'#7B5E4B'}}>Cancel</button>
+                    className="text-sm px-2" style={{color:'#6B7280'}}>Cancel</button>
                 </div>
               ) : (
                 <div className="flex gap-3 flex-wrap">
                   <button onClick={() => setAddingReq(true)}
-                    className="text-xs font-semibold" style={{color:'#1B4332'}}>+ Add Requirement</button>
+                    className="text-xs font-semibold" style={{color:'#003F87'}}>+ Add Requirement</button>
                   {reqs !== null && reqs.length === 0 && (
                     <button onClick={async () => {
                       const r = await api.post(`/api/awards/${award.id}/requirements/load-defaults`, {});
@@ -570,7 +592,7 @@ function LoadAllReqsButton({ scoutId, onDone }) {
   return (
     <button onClick={handleClick} disabled={status === 'loading'}
       className="text-sm bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 px-3 py-1.5 rounded-lg font-semibold transition-colors disabled:opacity-50">
-      {status === 'loading' ? '⏳ Loading…' : '⭐ Load All BSA Requirements'}
+      {status === 'loading' ? 'Loading…' : 'Load All BSA Requirements'}
     </button>
   );
 }
@@ -617,7 +639,7 @@ function ScoutPage({ scoutId, setPage, isAdmin }) {
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 fade-in">
       <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
-        <button onClick={() => setPage('home')} className="flex items-center gap-1 text-sm font-semibold" style={{color:'#1B4332'}}>
+        <button onClick={() => setPage('home')} className="flex items-center gap-1 text-sm font-semibold" style={{color:'#003F87'}}>
           ← Back to Roster
         </button>
         {isAdmin && (
@@ -626,7 +648,7 @@ function ScoutPage({ scoutId, setPage, isAdmin }) {
       </div>
 
       {/* Scout Header */}
-      <div className="rounded-2xl shadow-sm border overflow-hidden mb-6" style={{borderColor:info.border, background:'#FDFAF5'}}>
+      <div className="rounded-2xl shadow-sm border overflow-hidden mb-6" style={{borderColor:info.border, background:'#FFFFFF'}}>
         <div className="h-3" style={{background:`linear-gradient(90deg, ${info.color}, ${info.color}BB)`}}></div>
         <div className="p-6">
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
@@ -666,11 +688,11 @@ function ScoutPage({ scoutId, setPage, isAdmin }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{background:'#E8DDCC'}}>
-        {[['awards','🏅 Awards'],['events','📅 Events']].map(([k,l]) => (
+      <div className="flex gap-1 mb-6 p-1 rounded-xl w-fit" style={{background:'#EEF2FF'}}>
+        {[['awards','Awards'],['events','Events']].map(([k,l]) => (
           <button key={k} onClick={() => setActiveTab(k)}
-            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab===k ? 'shadow text-green-900' : 'hover:text-stone-700'}`}
-            style={activeTab===k ? {background:'#FDFAF5', color:'#1B4332'} : {color:'#7B5E4B'}}>
+            className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab===k ? 'shadow text-blue-900' : 'hover:text-stone-700'}`}
+            style={activeTab===k ? {background:'#FFFFFF', color:'#003F87'} : {color:'#6B7280'}}>
             {l}
           </button>
         ))}
@@ -680,13 +702,13 @@ function ScoutPage({ scoutId, setPage, isAdmin }) {
       {activeTab === 'awards' && (
         <div className="space-y-6 fade-in">
           {Object.entries(byType).map(([type, typeAwards]) => (
-            <div key={type} className="rounded-2xl shadow-sm border overflow-hidden" style={{borderColor:'#D9CABB', background:'#FDFAF5'}}>
+            <div key={type} className="rounded-2xl shadow-sm border overflow-hidden" style={{borderColor:'#C7D2FE', background:'#FFFFFF'}}>
               <div className="px-5 py-3 border-b flex items-center justify-between"
-                style={{background: type === 'rank_badge' ? info.bg : '#F0E9DC', borderColor:'#D9CABB'}}>
-                <h3 className="font-bold" style={{color:'#2C1810'}}>{AWARD_TYPE_LABELS[type] || type}</h3>
-                <span className="text-xs" style={{color:'#7B5E4B'}}>{typeAwards.filter(a=>a.status==='completed').length}/{typeAwards.length} completed</span>
+                style={{background: type === 'rank_badge' ? info.bg : '#EEF2FF', borderColor:'#C7D2FE'}}>
+                <h3 className="font-bold" style={{color:'#1F2937'}}>{AWARD_TYPE_LABELS[type] || type}</h3>
+                <span className="text-xs" style={{color:'#6B7280'}}>{typeAwards.filter(a=>a.status==='completed').length}/{typeAwards.length} completed</span>
               </div>
-              <div className="divide-y" style={{borderColor:'#EDE0CE'}}>
+              <div className="divide-y" style={{borderColor:'#E0E7FF'}}>
                 {typeAwards.map(award => (
                   <AwardRow key={award.id} award={award} isAdmin={isAdmin} onAwardUpdated={load} />
                 ))}
@@ -709,10 +731,10 @@ function ScoutPage({ scoutId, setPage, isAdmin }) {
               <h3 className="font-bold text-gray-700 mb-3">Upcoming Events ({upcoming.length})</h3>
               <div className="space-y-3">
                 {upcoming.map(e => (
-                  <div key={e.id} className="rounded-xl border p-4 flex items-center gap-4" style={{background:'#FDFAF5', borderColor:'#C5D9B5'}}>
+                  <div key={e.id} className="rounded-xl border p-4 flex items-center gap-4" style={{background:'#FFFFFF', borderColor:'#BFDBFE'}}>
                     <div className="text-center w-12 flex-shrink-0">
-                      <div className="text-xs font-bold uppercase" style={{color:'#1B4332'}}>{e.date && new Date(e.date+'T00:00:00').toLocaleDateString('en',{month:'short'})}</div>
-                      <div className="text-2xl font-black" style={{color:'#1B4332'}}>{e.date && new Date(e.date+'T00:00:00').getDate()}</div>
+                      <div className="text-xs font-bold uppercase" style={{color:'#003F87'}}>{e.date && new Date(e.date+'T00:00:00').toLocaleDateString('en',{month:'short'})}</div>
+                      <div className="text-2xl font-black" style={{color:'#003F87'}}>{e.date && new Date(e.date+'T00:00:00').getDate()}</div>
                     </div>
                     <div>
                       <div className="font-semibold text-gray-800">{e.title}</div>
@@ -809,14 +831,14 @@ function CalendarPage({ isAdmin }) {
     <div className="max-w-6xl mx-auto px-4 py-8 fade-in">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-1" style={{color:'#1B4332'}}>🏕️ Pack Calendar</h1>
-          <p style={{color:'#6B5744'}}>{upcoming.length} upcoming events</p>
+          <h1 className="text-3xl font-bold mb-1" style={{color:'#003F87'}}>Pack Calendar</h1>
+          <p style={{color:'#6B7280'}}>{upcoming.length} upcoming events</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setView('list')} className={`px-3 py-2 rounded-lg text-sm font-semibold ${view==='list'?'text-white':'text-stone-600 hover:bg-stone-200'}`}
-            style={view==='list'?{background:'#1B4332'}:{background:'#E8DDCC'}}>≡ List</button>
-          <button onClick={() => setView('calendar')} className={`px-3 py-2 rounded-lg text-sm font-semibold ${view==='calendar'?'text-white':'text-stone-600 hover:bg-stone-200'}`}
-            style={view==='calendar'?{background:'#1B4332'}:{background:'#E8DDCC'}}>📅 Calendar</button>
+          <button onClick={() => setView('list')} className={`px-3 py-2 rounded-lg text-sm font-semibold ${view==='list'?'text-white':'text-blue-800 hover:bg-blue-100'}`}
+            style={view==='list'?{background:'#003F87'}:{background:'#EEF2FF'}}>≡ List</button>
+          <button onClick={() => setView('calendar')} className={`px-3 py-2 rounded-lg text-sm font-semibold ${view==='calendar'?'text-white':'text-blue-800 hover:bg-blue-100'}`}
+            style={view==='calendar'?{background:'#003F87'}:{background:'#EEF2FF'}}>Calendar</button>
         </div>
       </div>
 
@@ -845,7 +867,7 @@ function CalendarPage({ isAdmin }) {
             {selectedEvent ? (
               <EventDetail event={selectedEvent} scouts={scouts} onSignup={() => setSignupModal(selectedEvent)} onRemove={handleRemoveSignup} isAdmin={isAdmin} onClose={() => setSelectedEvent(null)} />
             ) : (
-              <div className="rounded-2xl border p-8 text-center sticky top-24" style={{background:'#FDFAF5', borderColor:'#D9CABB', color:'#7B5E4B'}}>
+              <div className="rounded-2xl border p-8 text-center sticky top-24" style={{background:'#FFFFFF', borderColor:'#C7D2FE', color:'#6B7280'}}>
                 <div className="text-4xl mb-3">🏕️</div>
                 <p>Select an event to see details and sign up</p>
               </div>
@@ -866,7 +888,7 @@ function CalendarPage({ isAdmin }) {
                 <button key={s.id} onClick={() => !alreadySigned && handleSignup(s.id, signupModal.id)}
                   disabled={alreadySigned}
                   className={`w-full flex items-center justify-between p-3 rounded-xl border text-left text-sm transition-all`}
-                  style={alreadySigned ? {background:'#ECFDF5', borderColor:'#6EE7B7', color:'#1B4332'} : {background:'#F5EFE3', borderColor:'#C9B99A'}}>
+                  style={alreadySigned ? {background:'#DBEAFE', borderColor:'#93C5FD', color:'#1D4ED8'} : {background:'#F9FAFB', borderColor:'#E5E7EB'}}>
                   <span className="font-semibold">{s.firstName} {s.lastName}</span>
                   <span className="flex items-center gap-2">
                     <RankBadge rank={s.rank} />
@@ -886,23 +908,23 @@ function EventListCard({ event, onOpen, past }) {
   const d = event.date ? new Date(event.date + 'T00:00:00') : null;
   return (
     <button onClick={onOpen} className={`w-full text-left rounded-xl border p-4 hover:shadow-md transition-all flex items-center gap-4`}
-      style={{background:'#FDFAF5', borderColor: past ? '#D9CABB' : '#C5D9B5'}}>
+      style={{background:'#FFFFFF', borderColor: past ? '#C7D2FE' : '#BFDBFE'}}>
       <div className="text-center w-14 flex-shrink-0">
         {d && <>
-          <div className="text-xs font-bold uppercase" style={{color: past?'#9CA3AF':'#1B4332'}}>{d.toLocaleDateString('en',{month:'short'})}</div>
-          <div className="text-3xl font-black" style={{color: past?'#6B7280':'#1B4332'}}>{d.getDate()}</div>
+          <div className="text-xs font-bold uppercase" style={{color: past?'#9CA3AF':'#003F87'}}>{d.toLocaleDateString('en',{month:'short'})}</div>
+          <div className="text-3xl font-black" style={{color: past?'#6B7280':'#003F87'}}>{d.getDate()}</div>
         </>}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="font-bold truncate" style={{color:'#2C1810'}}>{event.title}</div>
-        <div className="text-xs flex flex-wrap gap-3 mt-0.5" style={{color:'#7B5E4B'}}>
+        <div className="font-bold truncate" style={{color:'#1F2937'}}>{event.title}</div>
+        <div className="text-xs flex flex-wrap gap-3 mt-0.5" style={{color:'#6B7280'}}>
           {event.time && <span>🕐 {event.time}</span>}
           {event.location && <span className="truncate">📍 {event.location}</span>}
         </div>
       </div>
       <div className="flex-shrink-0 text-right">
-        <span className="text-xs font-bold px-2 py-1 rounded-full" style={{background:'#ECFDF5', color:'#1B4332'}}>
-          👥 {event.signupCount || 0}
+        <span className="text-xs font-bold px-2 py-1 rounded-full" style={{background:'#DBEAFE', color:'#1E40AF'}}>
+          {event.signupCount || 0} signed up
         </span>
       </div>
     </button>
@@ -911,13 +933,13 @@ function EventListCard({ event, onOpen, past }) {
 
 function EventDetail({ event, scouts, onSignup, onRemove, isAdmin, onClose }) {
   return (
-    <div className="rounded-2xl border overflow-hidden sticky top-24 fade-in" style={{background:'#FDFAF5', borderColor:'#C5D9B5'}}>
-      <div className="p-5 text-white" style={{background:'#1B4332'}}>
+    <div className="rounded-2xl border overflow-hidden sticky top-24 fade-in" style={{background:'#FFFFFF', borderColor:'#BFDBFE'}}>
+      <div className="p-5 text-white" style={{background:'#003F87'}}>
         <div className="flex justify-between items-start">
           <h3 className="font-bold text-lg leading-tight">{event.title}</h3>
-          <button onClick={onClose} className="hover:text-white ml-2 text-xl" style={{color:'#86efac'}}>✕</button>
+          <button onClick={onClose} className="hover:text-white ml-2 text-xl" style={{color:'#93C5FD'}}>✕</button>
         </div>
-        <div className="flex flex-col gap-1 mt-2 text-sm" style={{color:'#86efac'}}>
+        <div className="flex flex-col gap-1 mt-2 text-sm" style={{color:'#93C5FD'}}>
           <span>📅 {event.date}{event.time ? ' at ' + event.time : ''}</span>
           {event.location && <span>📍 {event.location}</span>}
         </div>
@@ -991,7 +1013,7 @@ function SignUpSlots({ eventId, isAdmin }) {
 
   return (
     <div className="mt-4 pt-4 border-t border-gray-100">
-      <h4 className="font-bold text-gray-700 mb-3 text-sm">📋 Sign-Up Slots</h4>
+      <h4 className="font-bold text-gray-700 mb-3 text-sm">Sign-Up Slots</h4>
       <div className="space-y-2">
         {slots.map(slot => {
           const isFull = slot.capacity && slot.signupCount >= slot.capacity;
@@ -1010,8 +1032,8 @@ function SignUpSlots({ eventId, isAdmin }) {
                 </div>
                 {!isFull && !isOpen && (
                   <button onClick={() => { setSignupForm(slot.id); setMsg(''); }}
-                    className="text-xs font-bold text-white px-3 py-1 rounded-full whitespace-nowrap" style={{background:'#1B4332'}}
-                    onMouseOver={e=>e.target.style.background='#2D6A4F'} onMouseOut={e=>e.target.style.background='#1B4332'}>
+                    className="text-xs font-bold text-white px-3 py-1 rounded-full whitespace-nowrap" style={{background:'#003F87'}}
+                    onMouseOver={e=>e.target.style.background='#1E40AF'} onMouseOut={e=>e.target.style.background='#003F87'}>
                     Sign Up
                   </button>
                 )}
@@ -1033,15 +1055,15 @@ function SignUpSlots({ eventId, isAdmin }) {
               {isOpen && (
                 <div className="mt-2 p-3 bg-white rounded-xl border border-blue-100 space-y-2">
                   <input value={form.name} onChange={e => setForm(p => ({...p, name: e.target.value}))}
-                    placeholder="Your name *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-600" />
+                    placeholder="Your name *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
                   <input value={form.email} onChange={e => setForm(p => ({...p, email: e.target.value}))}
-                    placeholder="Email (optional)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-600" />
+                    placeholder="Email (optional)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
                   <input value={form.phone} onChange={e => setForm(p => ({...p, phone: e.target.value}))}
-                    placeholder="Phone (optional)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-600" />
+                    placeholder="Phone (optional)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
                   {msg && <p className="text-red-500 text-xs">{msg}</p>}
                   <div className="flex gap-2">
                     <button onClick={() => handleSignup(slot.id)} disabled={submitting}
-                      className="flex-1 text-white text-sm font-bold py-2 rounded-lg disabled:opacity-50" style={{background:'#1B4332'}}>
+                      className="flex-1 text-white text-sm font-bold py-2 rounded-lg disabled:opacity-50" style={{background:'#003F87'}}>
                       {submitting ? 'Signing up…' : 'Confirm Sign-Up'}
                     </button>
                     <button onClick={() => { setSignupForm(null); setMsg(''); }}
@@ -1075,38 +1097,38 @@ function CalendarGrid({ events, month, setMonth, onEventClick, selectedEvent }) 
   const dateStr = (d) => `${year}-${pad(m+1)}-${pad(d)}`;
 
   return (
-    <div className="rounded-2xl border overflow-hidden" style={{background:'#FDFAF5', borderColor:'#D9CABB'}}>
-      <div className="flex items-center justify-between px-6 py-4 border-b" style={{borderColor:'#D9CABB'}}>
+    <div className="rounded-2xl border overflow-hidden" style={{background:'#FFFFFF', borderColor:'#C7D2FE'}}>
+      <div className="flex items-center justify-between px-6 py-4 border-b" style={{borderColor:'#C7D2FE'}}>
         <button onClick={() => setMonth(prev => { const d = new Date(prev.year, prev.month-1); return {year:d.getFullYear(),month:d.getMonth()}; })}
-          className="px-3 py-1 rounded-lg text-sm font-bold" style={{background:'#E8DDCC', color:'#2C1810'}}>‹</button>
-        <h2 className="font-bold text-lg" style={{color:'#1B4332'}}>{monthNames[m]} {year}</h2>
+          className="px-3 py-1 rounded-lg text-sm font-bold" style={{background:'#EEF2FF', color:'#1F2937'}}>‹</button>
+        <h2 className="font-bold text-lg" style={{color:'#003F87'}}>{monthNames[m]} {year}</h2>
         <button onClick={() => setMonth(prev => { const d = new Date(prev.year, prev.month+1); return {year:d.getFullYear(),month:d.getMonth()}; })}
-          className="px-3 py-1 rounded-lg text-sm font-bold" style={{background:'#E8DDCC', color:'#2C1810'}}>›</button>
+          className="px-3 py-1 rounded-lg text-sm font-bold" style={{background:'#EEF2FF', color:'#1F2937'}}>›</button>
       </div>
-      <div className="grid grid-cols-7 text-xs font-bold text-center px-2 py-2" style={{color:'#7B5E4B'}}>
+      <div className="grid grid-cols-7 text-xs font-bold text-center px-2 py-2" style={{color:'#6B7280'}}>
         {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => <div key={d}>{d}</div>)}
       </div>
-      <div className="grid grid-cols-7 gap-px mx-2 mb-2 rounded-xl overflow-hidden" style={{background:'#D9CABB'}}>
+      <div className="grid grid-cols-7 gap-px mx-2 mb-2 rounded-xl overflow-hidden" style={{background:'#C7D2FE'}}>
         {cells.map((d, i) => {
-          if (d === null) return <div key={i} className="aspect-square" style={{background:'#F0E9DC'}}></div>;
+          if (d === null) return <div key={i} className="aspect-square" style={{background:'#EEF2FF'}}></div>;
           const ds = dateStr(d);
           const dayEvents = eventsByDate[ds] || [];
           const isToday = today.getFullYear()===year && today.getMonth()===m && today.getDate()===d;
           return (
             <div key={i} className={`p-1 min-h-[70px] ${isToday ? 'ring-2 ring-inset' : ''}`}
-              style={{background:'#FDFAF5', ringColor:'#1B4332'}}>
+              style={{background:'#FFFFFF', ringColor:'#003F87'}}>
               <div className={`text-xs font-bold text-right mb-1 w-6 h-6 ml-auto flex items-center justify-center rounded-full`}
-                style={isToday ? {background:'#1B4332', color:'white'} : {color:'#5C3D2E'}}>{d}</div>
+                style={isToday ? {background:'#003F87', color:'white'} : {color:'#5C3D2E'}}>{d}</div>
               {dayEvents.slice(0,2).map(ev => (
                 <button key={ev.id} onClick={() => onEventClick(ev)}
                   className="block w-full text-left text-xs px-1 py-0.5 rounded truncate mb-0.5 font-medium"
-                  style={{background:'#D1FAE5', color:'#1B4332'}}
+                  style={{background:'#D1FAE5', color:'#003F87'}}
                   onMouseOver={e=>e.currentTarget.style.background='#A7F3D0'}
                   onMouseOut={e=>e.currentTarget.style.background='#D1FAE5'}>
                   {ev.title}
                 </button>
               ))}
-              {dayEvents.length > 2 && <div className="text-xs pl-1" style={{color:'#7B5E4B'}}>+{dayEvents.length-2} more</div>}
+              {dayEvents.length > 2 && <div className="text-xs pl-1" style={{color:'#6B7280'}}>+{dayEvents.length-2} more</div>}
             </div>
           );
         })}
@@ -1133,11 +1155,15 @@ function AdminLoginPage({ onLogin }) {
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center px-4">
-      <div className="rounded-2xl shadow-xl border w-full max-w-sm p-8 fade-in" style={{background:'#FDFAF5', borderColor:'#C9B99A'}}>
+      <div className="rounded-2xl shadow-xl border w-full max-w-sm p-8 fade-in" style={{background:'#FFFFFF', borderColor:'#E5E7EB'}}>
         <div className="text-center mb-6">
-          <div className="text-5xl mb-3">🌲</div>
-          <h2 className="text-2xl font-bold" style={{color:'#1B4332'}}>Leader Access</h2>
-          <p className="text-sm mt-1" style={{color:'#6B5744'}}>Sign in with your leader account</p>
+          <div className="mb-3 flex justify-center">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{background:'#003F87'}}>
+              <span className="text-3xl">⚜️</span>
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold" style={{color:'#003F87'}}>Leader Access</h2>
+          <p className="text-sm mt-1" style={{color:'#6B7280'}}>Sign in with your leader account</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input label="Username" value={username} onChange={e => setUsername(e.target.value)} placeholder="e.g. cubmaster" autoFocus />
@@ -1147,7 +1173,7 @@ function AdminLoginPage({ onLogin }) {
             {loading ? '...' : '🏕️ Sign In'}
           </Btn>
         </form>
-        <p className="text-xs text-center mt-4" style={{color:'#A07D65'}}>Default: username <code className="px-1 rounded" style={{background:'#EDE5D4'}}>cubmaster</code></p>
+        <p className="text-xs text-center mt-4" style={{color:'#9CA3AF'}}>Default: username <code className="px-1 rounded" style={{background:'#EDE5D4'}}>cubmaster</code></p>
       </div>
     </div>
   );
@@ -1182,31 +1208,31 @@ function AdminPage({ isAdmin, setIsAdmin, authInfo, setAuthInfo }) {
   if (!isAdmin) return <AdminLoginPage onLogin={(res) => { setIsAdmin(true); setAuthInfo(res); }} />;
 
   const tabs = [
-    { key:'scouts', label:'👦 Scouts' },
-    { key:'awards', label:'🏅 Awards' },
-    { key:'events', label:'📅 Events' },
-    { key:'export', label:'📥 Export' },
-    ...(isPackAdmin ? [{ key:'users', label:'👥 Users' }, { key:'settings', label:'⚙️ Settings' }] : []),
+    { key:'scouts', label:'Scouts' },
+    { key:'awards', label:'Awards' },
+    { key:'events', label:'Events' },
+    { key:'export', label:'Export' },
+    ...(isPackAdmin ? [{ key:'users', label:'Users' }, { key:'settings', label:'Settings' }] : []),
   ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 fade-in">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold" style={{color:'#1B4332'}}>🏕️ Admin Dashboard</h1>
-          <p style={{color:'#6B5744'}}>
-            {isPackAdmin ? '⭐ Pack Admin' : `🏕️ Den Leader${userDen ? ` — ${userDen}` : ''}`}
+          <h1 className="text-3xl font-bold" style={{color:'#003F87'}}>Admin Dashboard</h1>
+          <p style={{color:'#6B7280'}}>
+            {isPackAdmin ? 'Pack Admin' : `Den Leader${userDen ? ` — ${userDen}` : ''}`}
             {authInfo?.name ? ` · ${authInfo.name}` : ''}
           </p>
         </div>
-        <Btn variant="secondary" onClick={logout}>🔒 Sign Out</Btn>
+        <Btn variant="secondary" onClick={logout}>Sign Out</Btn>
       </div>
 
-      <div className="flex gap-1 mb-6 p-1 rounded-xl flex-wrap" style={{background:'#E8DDCC'}}>
+      <div className="flex gap-1 mb-6 p-1 rounded-xl flex-wrap" style={{background:'#EEF2FF'}}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all`}
-            style={tab===t.key ? {background:'#FDFAF5', color:'#1B4332', boxShadow:'0 1px 3px rgba(0,0,0,0.1)'} : {color:'#7B5E4B'}}>
+            style={tab===t.key ? {background:'#FFFFFF', color:'#003F87', boxShadow:'0 1px 3px rgba(0,0,0,0.1)'} : {color:'#6B7280'}}>
             {t.label}
           </button>
         ))}
@@ -1263,7 +1289,7 @@ function AdminScoutsTab({ scouts, setScouts }) {
         <div className="relative flex-1">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search scouts..."
-            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-600 bg-white" />
+            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
         </div>
         <Btn onClick={() => setModal('add')} variant="gold">+ Add Scout</Btn>
       </div>
@@ -1428,38 +1454,38 @@ function AdminAwardRow({ award, onEdit, onDelete, onUpdated }) {
         </div>
       </div>
       {open && (
-        <div className="border-t px-4 py-3 mx-0" style={{background:'#F5EFE3', borderColor:'#D9CABB'}}>
-          {reqs === null && <p className="text-xs" style={{color:'#A07D65'}}>Loading…</p>}
+        <div className="border-t px-4 py-3 mx-0" style={{background:'#EEF2FF', borderColor:'#C7D2FE'}}>
+          {reqs === null && <p className="text-xs" style={{color:'#9CA3AF'}}>Loading…</p>}
           {reqs !== null && (
             <div className="space-y-2">
               {reqs.map(req => (
                 <div key={req.id} className="flex items-start gap-2 group">
                   <input type="checkbox" checked={!!req.completed} onChange={() => toggleReq(req)}
-                    className="mt-0.5 w-4 h-4 rounded accent-green-700 cursor-pointer flex-shrink-0" />
+                    className="mt-0.5 w-4 h-4 rounded accent-blue-600 cursor-pointer flex-shrink-0" />
                   <span className={`text-sm flex-1 ${req.completed ? 'line-through' : ''}`}
-                    style={{color: req.completed ? '#A07D65' : '#2C1810'}}>{req.text}</span>
+                    style={{color: req.completed ? '#9CA3AF' : '#1F2937'}}>{req.text}</span>
                   <button onClick={() => deleteReq(req)}
                     className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs px-1 transition-opacity flex-shrink-0">✕</button>
                 </div>
               ))}
-              {reqs.length === 0 && <p className="text-xs italic" style={{color:'#A07D65'}}>No requirements yet.</p>}
+              {reqs.length === 0 && <p className="text-xs italic" style={{color:'#9CA3AF'}}>No requirements yet.</p>}
             </div>
           )}
-          <div className="mt-3 border-t pt-3" style={{borderColor:'#C9B99A'}}>
+          <div className="mt-3 border-t pt-3" style={{borderColor:'#E5E7EB'}}>
             {addingReq ? (
               <div className="flex gap-2">
                 <input autoFocus value={newReqText} onChange={e => setNewReqText(e.target.value)}
                   onKeyDown={e => { if (e.key==='Enter') addReq(); if (e.key==='Escape') setAddingReq(false); }}
                   placeholder="Requirement text…"
-                  className="flex-1 text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-green-600" style={{borderColor:'#C9B99A', background:'#FDFAF5'}} />
-                <button onClick={addReq} className="text-sm text-white px-3 py-1.5 rounded-lg" style={{background:'#2D6A4F'}}>Add</button>
+                  className="flex-1 text-sm border rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500" style={{borderColor:'#E5E7EB', background:'#FFFFFF'}} />
+                <button onClick={addReq} className="text-sm text-white px-3 py-1.5 rounded-lg" style={{background:'#1D4ED8'}}>Add</button>
                 <button onClick={() => { setAddingReq(false); setNewReqText(''); }}
-                  className="text-sm px-2" style={{color:'#7B5E4B'}}>Cancel</button>
+                  className="text-sm px-2" style={{color:'#6B7280'}}>Cancel</button>
               </div>
             ) : (
               <div className="flex gap-3 flex-wrap">
                 <button onClick={() => setAddingReq(true)}
-                  className="text-xs font-semibold" style={{color:'#1B4332'}}>+ Add Requirement</button>
+                  className="text-xs font-semibold" style={{color:'#003F87'}}>+ Add Requirement</button>
                 {reqs !== null && reqs.length === 0 && (
                   <button onClick={async () => {
                     const r = await api.post(`/api/awards/${award.id}/requirements/load-defaults`, {});
@@ -1526,7 +1552,7 @@ function AdminAwardsTab({ scouts }) {
         <div className="relative mb-3">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search scouts..."
-            className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-600 bg-white" />
+            className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden max-h-[600px] overflow-y-auto">
           {RANKS.map(rank => {
@@ -1540,7 +1566,7 @@ function AdminAwardsTab({ scouts }) {
                 {group.map(s => (
                   <button key={s.id} onClick={() => loadAwards(s)}
                     className={`w-full text-left px-4 py-3 text-sm border-b transition-colors flex items-center justify-between`}
-                    style={selectedScout?.id===s.id ? {background:'#D1FAE5', color:'#1B4332', borderColor:'#EDE0CE'} : {borderColor:'#EDE0CE'}}>
+                    style={selectedScout?.id===s.id ? {background:'#D1FAE5', color:'#003F87', borderColor:'#E0E7FF'} : {borderColor:'#E0E7FF'}}>
                     <span className="font-semibold">{s.firstName} {s.lastName}</span>
                     <span className="text-gray-400 text-xs">{s.den||''}</span>
                   </button>
@@ -1626,7 +1652,7 @@ function AwardModal({ award, onSave, onClose }) {
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-gray-700">Progress: {form.progress}%</label>
           <input type="range" min="0" max="100" step="5" value={form.progress} onChange={setNum('progress')}
-            className="w-full accent-green-800" />
+            className="w-full accent-blue-700" />
         </div>
         {form.status === 'completed' && (
           <Input label="Date Earned" type="date" value={form.dateEarned||''} onChange={set('dateEarned')} />
@@ -1821,14 +1847,14 @@ function SlotManageModal({ event, onClose }) {
   };
 
   const SlotForm = ({ data, setData, onSave, onCancel, label }) => (
-    <div className="rounded-xl p-4 space-y-3 border" style={{background:'#F0F7F0', borderColor:'#C5D9B5'}}>
+    <div className="rounded-xl p-4 space-y-3 border" style={{background:'#EFF6FF', borderColor:'#BFDBFE'}}>
       <input value={data.title || ''} onChange={e => setData(p => ({...p, title: e.target.value}))}
-        placeholder="Slot title * (e.g. Bring cookies for 20)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-600" />
+        placeholder="Slot title * (e.g. Bring cookies for 20)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
       <input value={data.description || ''} onChange={e => setData(p => ({...p, description: e.target.value}))}
-        placeholder="Description (optional)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-600" />
+        placeholder="Description (optional)" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
       <input value={data.capacity || ''} onChange={e => setData(p => ({...p, capacity: e.target.value}))}
         placeholder="Max spots (leave blank for unlimited)" type="number" min="1"
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-600" />
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
       <div className="flex gap-2">
         <Btn size="sm" variant="gold" onClick={onSave} disabled={saving}>{saving ? 'Saving…' : label}</Btn>
         <Btn size="sm" variant="secondary" onClick={onCancel}>Cancel</Btn>
@@ -1941,13 +1967,13 @@ function AdminExportTab({ scouts, events }) {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
-        <h3 className="font-bold text-gray-800 text-lg mb-1">📋 Master Scout Roster</h3>
+        <h3 className="font-bold text-gray-800 text-lg mb-1">Master Scout Roster</h3>
         <p className="text-sm text-gray-500 mb-4">Export all {scouts.length} scouts with contact information</p>
         <Btn variant="success" onClick={() => download('/api/exports/all-scouts/csv')}>⬇ Download CSV</Btn>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
-        <h3 className="font-bold text-gray-800 text-lg mb-1">👤 Scout Profile PDFs</h3>
+        <h3 className="font-bold text-gray-800 text-lg mb-1">Scout Profile PDFs</h3>
         <p className="text-sm text-gray-500 mb-4">Download a detailed profile PDF for any scout</p>
         <div className="max-h-48 overflow-y-auto space-y-1.5">
           {RANKS.map(rank => scouts.filter(s=>s.rank===rank).map(s => (
@@ -1960,7 +1986,7 @@ function AdminExportTab({ scouts, events }) {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 p-6 md:col-span-2">
-        <h3 className="font-bold text-gray-800 text-lg mb-1">📅 Event Sign-Up Rosters</h3>
+        <h3 className="font-bold text-gray-800 text-lg mb-1">Event Sign-Up Rosters</h3>
         <p className="text-sm text-gray-500 mb-4">Export sign-up lists for any event in CSV or PDF format</p>
         <div className="space-y-3">
           {upcomingEvents.length > 0 && (
@@ -2039,16 +2065,16 @@ function AdminUsersTab() {
     <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-800">👥 Leader Accounts</h2>
+          <h2 className="text-xl font-bold text-gray-800">Leader Accounts</h2>
           <p className="text-sm text-gray-500 mt-0.5">Pack Admins have full access. Den Leaders see only their assigned den.</p>
         </div>
         <Btn variant="gold" size="sm" onClick={() => setModal('add')}>+ Add Leader</Btn>
       </div>
 
-      {[['Pack Admins', packAdmins, '⭐'], ['Den Leaders', denLeaders, '🏕️']].map(([label, group, icon]) => (
+      {[['Pack Admins', packAdmins], ['Den Leaders', denLeaders]].map(([label, group]) => (
         group.length > 0 && (
           <div key={label} className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
-            <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 font-bold text-sm text-gray-700">{icon} {label}</div>
+            <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 font-bold text-sm text-gray-700">{label}</div>
             <div className="divide-y divide-gray-50">
               {group.map(u => (
                 <div key={u.id} className="px-5 py-3 flex items-center justify-between gap-3">
@@ -2059,7 +2085,7 @@ function AdminUsersTab() {
                     {u.den && <div className="text-xs text-gray-500 mt-0.5">Den: {u.den}</div>}
                   </div>
                   <div className="flex gap-2">
-                    <Btn size="sm" variant="secondary" onClick={() => setModal({...u, resetOnly: true})}>🔑 Reset PW</Btn>
+                    <Btn size="sm" variant="secondary" onClick={() => setModal({...u, resetOnly: true})}>Reset PW</Btn>
                     <Btn size="sm" variant="secondary" onClick={() => setModal(u)}>Edit</Btn>
                     <Btn size="sm" variant="danger" onClick={() => setConfirmDel(u)}>✕</Btn>
                   </div>
@@ -2144,9 +2170,9 @@ function UserModal({ user, onSave, onClose }) {
         <div>
           <label className="text-sm font-medium text-gray-700 block mb-1">Role</label>
           <select value={form.role} onChange={set('role')}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-600">
-            <option value="pack_admin">⭐ Pack Admin — full access to everything</option>
-            <option value="den_leader">🏕️ Den Leader — sees only their assigned den</option>
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="pack_admin">Pack Admin — full access to everything</option>
+            <option value="den_leader">Den Leader — sees only their assigned den</option>
           </select>
         </div>
         {form.role === 'den_leader' && (
@@ -2202,7 +2228,7 @@ function AdminSettingsTab() {
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
-        <h3 className="font-bold text-gray-800 text-lg mb-1">📧 Sign-Up Notifications</h3>
+        <h3 className="font-bold text-gray-800 text-lg mb-1">Sign-Up Notifications</h3>
         <p className="text-sm text-gray-500 mb-4">Get an email whenever someone signs up for a slot. Requires a Gmail account with an App Password.</p>
         <div className="space-y-3">
           <Input label="Pack Leader Email (receive notifications here)"
@@ -2272,7 +2298,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen" style={{background:'#F4EDDC'}}>
+    <div className="min-h-screen" style={{background:'#EEF4FF'}}>
       <Navbar page={page} setPage={navigate} isAdmin={isAdmin} onAdminClick={onAdminClick} />
       <main>
         {page === 'home'     && <HomePage setPage={navigate} setSelectedScoutId={setSelectedScoutId} />}
@@ -2280,7 +2306,7 @@ function App() {
         {page === 'calendar' && <CalendarPage isAdmin={isAdmin} />}
         {page === 'admin'    && <AdminPage isAdmin={isAdmin} setIsAdmin={setIsAdmin} authInfo={authInfo} setAuthInfo={setAuthInfo} />}
       </main>
-      <footer className="text-center py-6 text-xs mt-8 border-t" style={{color:'#A07D65', borderColor:'#C9B99A'}}>
+      <footer className="text-center py-6 text-xs mt-8 border-t" style={{color:'#9CA3AF', borderColor:'#E5E7EB'}}>
         ⚜️ Cub Scouts Pack Manager · Be Prepared · Do Your Best
       </footer>
     </div>
